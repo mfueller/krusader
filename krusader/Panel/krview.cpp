@@ -1144,7 +1144,18 @@ void KrView::refresh()
     } else if (!currentItem.isEmpty()) {
         setCurrentItem(currentItem, currentIndex);
     } else {
-        setCurrentKrViewItem(getFirst());
+        KrViewItem* it = getFirst();
+
+	if(it!=0) {
+	  KrViewItem* it_next = getNext(it);
+	  if(it_next != 0) {
+	     setCurrentKrViewItem(it_next);
+	  } else {
+             setCurrentKrViewItem(it);
+	  }
+	} else {
+	  setCurrentKrViewItem(it);
+        }
     }
 
     updatePreviews();
