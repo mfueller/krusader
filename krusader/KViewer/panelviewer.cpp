@@ -45,6 +45,8 @@ PanelViewerBase::PanelViewerBase(QWidget *parent, KrViewer::Mode mode) :
 
     mimes = new QHash<QString, QPointer<KParts::ReadOnlyPart> >();
     cpart = 0;
+    // NOTE: the fallback should be never visible. The viewer is not opened without a file and the
+    // tab is closed if a file cannot be opened.
     fallback = new QLabel(i18n("No file selected or selected file cannot be displayed."), this);
     fallback->setAlignment(Qt::Alignment(QFlag(Qt::AlignCenter | Qt::TextExpandTabs)));
     fallback->setWordWrap(true);
@@ -286,8 +288,8 @@ KParts::ReadOnlyPart* PanelViewer::createPart(QString mimetype)
     if (part) {
         KParts::BrowserExtension * ext = KParts::BrowserExtension::childObject(part);
         if (ext) {
-            connect(ext, SIGNAL(openUrlRequestDelayed(const QUrl &, const KParts::OpenUrlArguments&, const KParts::BrowserArguments&)), this, SLOT(openUrl(const QUrl &)));
-            connect(ext, SIGNAL(openUrlRequestDelayed(const QUrl &, const KParts::OpenUrlArguments&, const KParts::BrowserArguments&)), this, SIGNAL(openUrlRequest(const QUrl &)));
+            connect(ext, SIGNAL(openUrlRequestDelayed(QUrl,KParts::OpenUrlArguments,KParts::BrowserArguments)), this, SLOT(openUrl(QUrl)));
+            connect(ext, SIGNAL(openUrlRequestDelayed(QUrl,KParts::OpenUrlArguments,KParts::BrowserArguments)), this, SIGNAL(openUrlRequest(QUrl)));
         }
     }
     return part;
@@ -405,8 +407,8 @@ KParts::ReadOnlyPart* PanelEditor::createPart(QString mimetype)
     if (part) {
         KParts::BrowserExtension * ext = KParts::BrowserExtension::childObject(part);
         if (ext) {
-            connect(ext, SIGNAL(openUrlRequestDelayed(const QUrl &, const KParts::OpenUrlArguments&, const KParts::BrowserArguments&)), this, SLOT(openUrl(const QUrl &)));
-            connect(ext, SIGNAL(openUrlRequestDelayed(const QUrl &, const KParts::OpenUrlArguments&, const KParts::BrowserArguments&)), this, SIGNAL(openUrlRequest(const QUrl &)));
+            connect(ext, SIGNAL(openUrlRequestDelayed(QUrl,KParts::OpenUrlArguments,KParts::BrowserArguments)), this, SLOT(openUrl(QUrl)));
+            connect(ext, SIGNAL(openUrlRequestDelayed(QUrl,KParts::OpenUrlArguments,KParts::BrowserArguments)), this, SIGNAL(openUrlRequest(QUrl)));
         }
     }
     return part;

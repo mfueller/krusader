@@ -22,15 +22,12 @@
 
 // QtCore
 #include <QPointer>
-// QtGui
 // QtWidgets
 #include <QButtonGroup>
-#include <QSplitter>
 #include <QStackedWidget>
 #include <QToolButton>
 #include <QWidget>
 
-#include <KCompletion/KComboBox>
 #include <KConfigCore/KConfigGroup>
 #include <KIO/PreviewJob>
 #include <KIOFileWidgets/KImageFilePreview>
@@ -39,57 +36,65 @@ class KrSqueezedTextLabel;
 class PanelViewer;
 class DiskUsageViewer;
 class KrFileTreeView;
-class vfile;
-class KrMainWindow;
+class FileItem;
 
+/**
+ * Additional side widget showing various meta information for the current file/directories.
+ */
 class PanelPopup: public QWidget
 {
     Q_OBJECT
 
-    enum Parts { Tree, Preview, View, DskUsage, Last = 0xFF };
+    enum Parts {
+        /** Folder tree view */
+        Tree,
+        /** Preview image for current file/directory */
+        Preview,
+        /** File view: show file in most appropriate, read-only editor */
+        View,
+        /** Disk usage for current directory structure */
+        DskUsage,
+        /** Dummy */
+        Last = 0xFF
+    };
+
 public:
-    PanelPopup(QSplitter *splitter, bool left, KrMainWindow *mainWindow);
+    explicit PanelPopup(QWidget *parent);
     ~PanelPopup();
     inline int currentPage() const {
         return stack->currentWidget()->property("KrusaderWidgetId").toInt();
     }
     void saveSettings(KConfigGroup cfg) const;
-    void restoreSettings(KConfigGroup cfg);
+    void restoreSettings(const KConfigGroup &cfg);
     void setCurrentPage(int);
 
 public slots:
-    void update(const vfile *vf);
+    void update(const FileItem *fileitem);
     void onPanelPathChange(const QUrl &url);
     void show();
     void hide();
 
 signals:
-    void selection(const QUrl &url);
+    void urlActivated(const QUrl &url);
     void hideMe();
 
 protected slots:
     void tabSelected(int id);
-    void treeSelection();
     void handleOpenUrlRequest(const QUrl &url);
 
 protected:
     virtual void focusInEvent(QFocusEvent*) Q_DECL_OVERRIDE;
 
-    bool _left;
     bool _hidden;
-    KrMainWindow *_mainWindow;
     QStackedWidget *stack;
-    KImageFilePreview *viewer;
+    KImageFilePreview *imageFilePreview;
     KrSqueezedTextLabel *dataLine;
     QPointer<KIO::PreviewJob> pjob;
     KrFileTreeView *tree;
     QToolButton *treeBtn, *previewBtn, *viewerBtn, *duBtn;
     QButtonGroup *btns;
-    KComboBox *quickSelectCombo;
-    PanelViewer *panelviewer;
+    PanelViewer *fileViewer;
     DiskUsageViewer *diskusage;
-    QList<int> splitterSizes;
-    QSplitter *splitter;
 };
 
 #endif

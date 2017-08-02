@@ -47,13 +47,13 @@
 
 #include "../GUI/krtreewidget.h"
 #include "../Panel/krsearchbar.h"
-#include "../Panel/krselectionmode.h"
-#include "../Panel/krview.h"
-#include "../Panel/krviewfactory.h"
+#include "../Panel/PanelView/krselectionmode.h"
+#include "../Panel/PanelView/krview.h"
+#include "../Panel/PanelView/krviewfactory.h"
 #include "../Panel/krlayoutfactory.h"
 
 enum {
-    PAGE_MISC = 0,
+    PAGE_GENERAL = 0,
     PAGE_VIEW,
     PAGE_PANELTOOLBAR,
     PAGE_MOUSE,
@@ -69,7 +69,7 @@ KgPanel::KgPanel(bool first, QWidget* parent) :
     setWidget(tabWidget);
     setWidgetResizable(true);
 
-    setupMiscTab();
+    setupGeneralTab();
     setupPanelTab();
     setupButtonsTab();
     setupMouseModeTab();
@@ -78,9 +78,9 @@ KgPanel::KgPanel(bool first, QWidget* parent) :
 }
 
 // ---------------------------------------------------------------------------------------
-//  ---------------------------- Misc TAB ------------------------------------------------
+// ---------------------------- General TAB ----------------------------------------------
 // ---------------------------------------------------------------------------------------
-void KgPanel::setupMiscTab()
+void KgPanel::setupGeneralTab()
 {
     QScrollArea *scrollArea = new QScrollArea(tabWidget);
     QWidget *tab = new QWidget(scrollArea);
@@ -89,31 +89,31 @@ void KgPanel::setupMiscTab()
     scrollArea->setWidgetResizable(true);
     tabWidget->addTab(scrollArea, i18n("General"));
 
-    QVBoxLayout *miscLayout = new QVBoxLayout(tab);
-    miscLayout->setSpacing(6);
-    miscLayout->setContentsMargins(11, 11, 11, 11);
+    QVBoxLayout *layout = new QVBoxLayout(tab);
+    layout->setSpacing(6);
+    layout->setContentsMargins(11, 11, 11, 11);
 
 // ---------------------------------------------------------------------------------------
 // ------------------------------- Navigator bar -------------------------------------
 // ---------------------------------------------------------------------------------------
-        QGroupBox *miscGrp = createFrame(i18n("Navigator bar"), tab);
-        QGridLayout *miscGrid = createGridLayout(miscGrp);
+        QGroupBox *groupBox = createFrame(i18n("Navigator bar"), tab);
+        QGridLayout *gridLayout = createGridLayout(groupBox);
 
         KONFIGURATOR_CHECKBOX_PARAM navigatorbar_settings[] = {
             // cfg_class, cfg_name, default, text, restart, tooltip
             {"Look&Feel", "Navigator Edit Mode", false, i18n("Edit Mode by default"),       true, i18n("Show editable path in Navigator bar by default") },
             {"Look&Feel", "Navigator Full Path", false, i18n("Show full path by default"),  true, i18n("Always show full path in Navigator bar by default.") },
         };
-        cbs = createCheckBoxGroup(2, 0, navigatorbar_settings, 2 /*count*/, miscGrp, PAGE_MISC);
-        miscGrid->addWidget(cbs, 0, 0);
+        cbs = createCheckBoxGroup(2, 0, navigatorbar_settings, 2 /*count*/, groupBox, PAGE_GENERAL);
+        gridLayout->addWidget(cbs, 0, 0);
 
-        miscLayout->addWidget(miscGrp);
+        layout->addWidget(groupBox);
 
 // ---------------------------------------------------------------------------------------
 // ------------------------------- Operation ---------------------------------------------
 // ---------------------------------------------------------------------------------------
-    miscGrp = createFrame(i18n("Operation"), tab);
-    miscGrid = createGridLayout(miscGrp);
+    groupBox = createFrame(i18n("Operation"), tab);
+    gridLayout = createGridLayout(groupBox);
 
     KONFIGURATOR_CHECKBOX_PARAM operation_settings[] = { // cfg_class, cfg_name, default, text, restart, tooltip
         {"Look&Feel", "Mark Dirs",            _MarkDirs,          i18n("Autoselect folders"),   false,  i18n("When matching the select criteria, not only files will be selected, but also folders.") },
@@ -121,28 +121,28 @@ void KgPanel::setupMiscTab()
         {"Look&Feel", "UnselectBeforeOperation", _UnselectBeforeOperation, i18n("Unselect files before copy/move"), false, i18n("Unselect files, which are to be copied/moved, before the operation starts.") },
         {"Look&Feel", "FilterDialogRemembersSettings", _FilterDialogRemembersSettings, i18n("Filter dialog remembers settings"), false, i18n("The filter dialog is opened with the last filter settings that where applied to the panel.") },
     };
-    cbs = createCheckBoxGroup(2, 0, operation_settings, 4 /*count*/, miscGrp, PAGE_MISC);
-    miscGrid->addWidget(cbs, 0, 0);
+    cbs = createCheckBoxGroup(2, 0, operation_settings, 4 /*count*/, groupBox, PAGE_GENERAL);
+    gridLayout->addWidget(cbs, 0, 0);
 
-    miscLayout->addWidget(miscGrp);
+    layout->addWidget(groupBox);
 
 // ---------------------------------------------------------------------------------------
 // ------------------------------ Tabs ---------------------------------------------------
 // ---------------------------------------------------------------------------------------
-    miscGrp = createFrame(i18n("Tabs"), tab);
-    miscGrid = createGridLayout(miscGrp);
+    groupBox = createFrame(i18n("Tabs"), tab);
+    gridLayout = createGridLayout(groupBox);
 
     KONFIGURATOR_CHECKBOX_PARAM tabbar_settings[] = { //   cfg_class  cfg_name                default             text                              restart tooltip
         {"Look&Feel", "Fullpath Tab Names",   _FullPathTabNames,  i18n("Use full path tab names"), true ,  i18n("Display the full path in the folder tabs. By default only the last part of the path is displayed.") },
-        {"Look&Feel", "Show Tab Buttons",   true,  i18n("Show new/close tab buttons"), true ,  i18n("Show the new/close tab buttons") },
+        {"Look&Feel", "Show Tab Buttons",   true,  i18n("Show new/close tab buttons"), true ,  i18n("Show the new/close tab buttons.") },
     };
-    KonfiguratorCheckBoxGroup *cbs = createCheckBoxGroup(2, 0, tabbar_settings, 2 /*count*/, miscGrp, PAGE_MISC);
-    miscGrid->addWidget(cbs, 0, 0);
+    KonfiguratorCheckBoxGroup *cbs = createCheckBoxGroup(2, 0, tabbar_settings, 2 /*count*/, groupBox, PAGE_GENERAL);
+    gridLayout->addWidget(cbs, 0, 0, 1, 2);
 
 // -----------------  Tab Bar position ----------------------------------
     QHBoxLayout *hbox = new QHBoxLayout();
 
-    hbox->addWidget(new QLabel(i18n("Tab Bar position:"), miscGrp));
+    hbox->addWidget(new QLabel(i18n("Tab Bar position:"), groupBox));
 
     KONFIGURATOR_NAME_VALUE_PAIR positions[] = {
         { i18n("Top"),      "top" },
@@ -150,20 +150,24 @@ void KgPanel::setupMiscTab()
     };
 
     KonfiguratorComboBox *cmb = createComboBox("Look&Feel", "Tab Bar Position",
-                                "bottom", positions, 2, miscGrp, true, false, PAGE_MISC);
+                                "bottom", positions, 2, groupBox, true, false, PAGE_GENERAL);
 
     hbox->addWidget(cmb);
-    hbox->addWidget(createSpacer(miscGrp));
+    gridLayout->addLayout(hbox, 1, 0, Qt::AlignLeft);
 
-    miscGrid->addLayout(hbox, 1, 0);
+// -----------------  Show Tab bar ----------------------------------
+    KonfiguratorCheckBox *checkBox = createCheckBox("Look&Feel", "Show Tab Bar On Single Tab", true,
+                                                    i18n("Show Tab Bar on single tab"), groupBox,
+                                                    true, i18n("Show the tab bar with only one tab."));
+    gridLayout->addWidget(checkBox, 1, 1, Qt::AlignLeft);
 
-    miscLayout->addWidget(miscGrp);
+    layout->addWidget(groupBox);
 
 // ---------------------------------------------------------------------------------------
 // -----------------------------  Search bar  --------------------------------------------
 // ---------------------------------------------------------------------------------------
-    miscGrp = createFrame(i18n("Search bar"), tab);
-    miscGrid = createGridLayout(miscGrp);
+    groupBox = createFrame(i18n("Search bar"), tab);
+    gridLayout = createGridLayout(groupBox);
 
     KONFIGURATOR_CHECKBOX_PARAM quicksearch[] = { //   cfg_class  cfg_name                default             text                              restart tooltip
         {"Look&Feel", "New Style Quicksearch",  _NewStyleQuicksearch, i18n("Start by typing"), false,  i18n("Open search bar and start searching by typing in panel.") },
@@ -171,44 +175,44 @@ void KgPanel::setupMiscTab()
         {"Look&Feel", "Up/Down Cancels Quicksearch",  false, i18n("Up/Down cancels search"), false,  i18n("Pressing the Up/Down buttons closes the search bar (only in search mode).") },
     };
 
-    quicksearchCheckboxes = createCheckBoxGroup(2, 0, quicksearch, 3 /*count*/, miscGrp, PAGE_MISC);
-    miscGrid->addWidget(quicksearchCheckboxes, 0, 0, 1, -1);
+    quicksearchCheckboxes = createCheckBoxGroup(2, 0, quicksearch, 3 /*count*/, groupBox, PAGE_GENERAL);
+    gridLayout->addWidget(quicksearchCheckboxes, 0, 0, 1, -1);
     connect(quicksearchCheckboxes->find("New Style Quicksearch"), SIGNAL(stateChanged(int)), this, SLOT(slotDisable()));
     slotDisable();
 
     // -------------- Search bar position -----------------------
 
     hbox = new QHBoxLayout();
-    hbox->addWidget(new QLabel(i18n("Position:"), miscGrp));
+    hbox->addWidget(new QLabel(i18n("Position:"), groupBox));
     cmb = createComboBox("Look&Feel", "Quicksearch Position",
-                            "bottom", positions, 2, miscGrp, true, false, PAGE_MISC);
+                            "bottom", positions, 2, groupBox, true, false, PAGE_GENERAL);
     hbox->addWidget(cmb);
-    hbox->addWidget(createSpacer(miscGrp));
-    miscGrid->addLayout(hbox, 1, 0);
-    miscLayout->addWidget(miscGrp);
+    hbox->addWidget(createSpacer(groupBox));
+    gridLayout->addLayout(hbox, 1, 0);
+    layout->addWidget(groupBox);
 
     // -------------- Default search mode -----------------------
 
     hbox = new QHBoxLayout();
-    hbox->addWidget(new QLabel(i18n("Default mode:"), miscGrp));
+    hbox->addWidget(new QLabel(i18n("Default mode:"), groupBox));
     KONFIGURATOR_NAME_VALUE_PAIR modes[] = {
         { i18n("Search"),   QString::number(KrSearchBar::MODE_SEARCH) },
         { i18n("Select"),   QString::number(KrSearchBar::MODE_SELECT) },
         { i18n("Filter"),   QString::number(KrSearchBar::MODE_FILTER) }
     };
     cmb = createComboBox("Look&Feel", "Default Search Mode",
-                         QString::number(KrSearchBar::MODE_SEARCH), modes, 3, miscGrp, true, false, PAGE_MISC);
+                         QString::number(KrSearchBar::MODE_SEARCH), modes, 3, groupBox, true, false, PAGE_GENERAL);
     cmb->setToolTip(i18n("Set the default mode on first usage"));
     hbox->addWidget(cmb);
-    hbox->addWidget(createSpacer(miscGrp));
-    miscGrid->addLayout(hbox, 1, 1);
-    miscLayout->addWidget(miscGrp);
+    hbox->addWidget(createSpacer(groupBox));
+    gridLayout->addLayout(hbox, 1, 1);
+    layout->addWidget(groupBox);
 
 // --------------------------------------------------------------------------------------------
 // ------------------------------- Status/Totalsbar settings ----------------------------------
 // --------------------------------------------------------------------------------------------
-    miscGrp = createFrame(i18n("Status/Totalsbar"), tab);
-    miscGrid = createGridLayout(miscGrp);
+    groupBox = createFrame(i18n("Status/Totalsbar"), tab);
+    gridLayout = createGridLayout(groupBox);
 
     KONFIGURATOR_CHECKBOX_PARAM barSettings[] =
     {
@@ -216,10 +220,10 @@ void KgPanel::setupMiscTab()
         {"Look&Feel", "ShowSpaceInformation", true, i18n("Show space information"), true,  i18n("Show free/total space on the device") },
     };
     KonfiguratorCheckBoxGroup *barSett = createCheckBoxGroup(2, 0, barSettings,
-                                          2 /*count*/, miscGrp, PAGE_MISC);
-    miscGrid->addWidget(barSett, 1, 0, 1, 2);
+                                          2 /*count*/, groupBox, PAGE_GENERAL);
+    gridLayout->addWidget(barSett, 1, 0, 1, 2);
 
-    miscLayout->addWidget(miscGrp);
+    layout->addWidget(groupBox);
 }
 
 // --------------------------------------------------------------------------------------------
@@ -355,17 +359,31 @@ void KgPanel::setupPanelTab()
     // -------------------- Panel Font ----------------------------------
     QHBoxLayout *hbox = new QHBoxLayout();
 
-    hbox->addWidget(new QLabel(i18n("View font:"), panelGrp));
+    QHBoxLayout *fontLayout = new QHBoxLayout();
+    fontLayout->addWidget(new QLabel(i18n("View font:"), panelGrp));
+    KonfiguratorFontChooser *chsr =
+        createFontChooser("Look&Feel", "Filelist Font", _FilelistFont, panelGrp, true, PAGE_VIEW);
+    fontLayout->addWidget(chsr);
+    fontLayout->addStretch(1);
+    hbox->addLayout(fontLayout, 1);
 
-    KonfiguratorFontChooser * chsr = createFontChooser("Look&Feel", "Filelist Font", _FilelistFont, panelGrp, true, PAGE_VIEW);
-    hbox->addWidget(chsr);
-
-    hbox->addWidget(createSpacer(panelGrp));
+    // -------------------- Panel Tooltip ----------------------------------
+    QHBoxLayout *tooltipLayout = new QHBoxLayout();
+    QLabel *tooltipLabel = new QLabel(i18n("Tooltip delay (msec):"));
+    tooltipLabel->setWhatsThis(i18n("The duration after a tooltip is shown for a file item, in "
+                                    "milliseconds. Set a negative value to disable tooltips."));
+    tooltipLayout->addWidget(tooltipLabel);
+    KonfiguratorSpinBox *tooltipSpinBox = createSpinBox("Look&Feel", "Panel Tooltip Delay", 1000,
+                                                        -100, 5000, panelGrp, false, PAGE_VIEW);
+    tooltipSpinBox->setSingleStep(100);
+    tooltipLayout->addWidget(tooltipSpinBox);
+    tooltipLayout->addStretch(1);
+    hbox->addLayout(tooltipLayout, 1);
 
     panelGrid->addLayout(hbox, 1, 0);
 
 
-    // -------------------- Misc options ----------------------------------
+    // -------------------- General options ----------------------------------
     KONFIGURATOR_CHECKBOX_PARAM panelSettings[] =
         //   cfg_class  cfg_name                default text                                  restart tooltip
     {
@@ -373,9 +391,10 @@ void KgPanel::setupPanelTab()
         {"Look&Feel", "Show Hidden",                    _ShowHidden,             i18n("Show hidden files"),      false,  i18n("Display files beginning with a dot.") },
         {"Look&Feel", "Numeric permissions",            _NumericPermissions,     i18n("Numeric Permissions"), true,  i18n("Show octal numbers (0755) instead of the standard permissions (rwxr-xr-x) in the permission column.") },
         {"Look&Feel", "Load User Defined Folder Icons", _UserDefinedFolderIcons, i18n("Load the user defined folder icons"), true ,  i18n("Load the user defined folder icons (can cause decrease in performance).") },
+        {"Look&Feel", "Always Show Current Item",       _AlwaysShowCurrentItem,  i18n("Always show current item"), false,  i18n("Show current item border decoration in inactive panel.") },
     };
 
-    KonfiguratorCheckBoxGroup *panelSett = createCheckBoxGroup(2, 0, panelSettings, 4 /*count*/, panelGrp, PAGE_VIEW);
+    KonfiguratorCheckBoxGroup *panelSett = createCheckBoxGroup(2, 0, panelSettings, 5 /*count*/, panelGrp, PAGE_VIEW);
 
     panelGrid->addWidget(panelSett, 3, 0, 1, 2);
 
@@ -438,7 +457,7 @@ void KgPanel::setupPanelTab()
     const int viewsSize = views.size();
     KONFIGURATOR_NAME_VALUE_PAIR *panelTypes = new KONFIGURATOR_NAME_VALUE_PAIR[ viewsSize ];
 
-    QString defType = "0";
+    QString defType = QString('0');
 
     for (int i = 0; i != viewsSize; i++) {
         KrViewInstance * inst = views[ i ];
@@ -566,7 +585,7 @@ void KgPanel::setupMouseModeTab()
     KONFIGURATOR_NAME_VALUE_TIP singleOrDoubleClick[] = {
         //          name            value            tooltip
         { i18n("Double-click selects (classic)"), "0", i18n("A single click on a file will select and focus, a double click opens the file or steps into the folder.") },
-        { i18n("Obey KDE's global selection policy"), "1", i18n("<p>Use KDE's global setting:</p><p><i>KDE System Settings -> Input Devices -> Mouse</i></p>") }
+        { i18n("Obey global selection policy"), "1", i18n("<p>Use global setting:</p><p><i>Plasma System Settings -> Input Devices -> Mouse</i></p>") }
     };
     KonfiguratorRadioButtons *clickRadio = createRadioButtonGroup("Look&Feel", "Single Click Selects", "0", 1, 0, singleOrDoubleClick, 2, mouseDetailGroup, true, PAGE_MOUSE);
     clickRadio->layout()->setContentsMargins(0, 0, 0, 0);

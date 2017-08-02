@@ -45,7 +45,7 @@
 #include <KParts/Part>
 #include <KTextWidgets/KTextEdit>
 
-#include "../VFS/krquery.h"
+#include "../FileSystem/krquery.h"
 
 #define  SLIDER_MAX          10000
 #define  MAX_CHAR_LENGTH     4
@@ -161,7 +161,7 @@ class ListerBrowserExtension : public KParts::BrowserExtension
     Q_OBJECT
 
 public:
-    ListerBrowserExtension(Lister * lister);
+    explicit ListerBrowserExtension(Lister * lister);
 
 public slots:
     void copy();
@@ -193,7 +193,7 @@ class Lister : public KParts::ReadOnlyPart
     Q_OBJECT
 
 public:
-    Lister(QWidget *parent);
+    explicit Lister(QWidget *parent);
     ~Lister();
 
     QScrollBar     *scrollBar() {

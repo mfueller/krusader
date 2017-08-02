@@ -56,9 +56,9 @@ class KrusaderView : public QWidget
     Q_OBJECT
 
 public:
-    KrusaderView(QWidget *parent = 0);
+    explicit KrusaderView(QWidget *parent = 0);
     virtual ~KrusaderView() {}
-    void start(KConfigGroup &cfg, bool restoreSettings, const QList<QUrl> &leftTabs, const QList<QUrl> &rightTabs);
+    void start(const KConfigGroup &cfg, bool restoreSettings, const QList<QUrl> &leftTabs, const QList<QUrl> &rightTabs);
     void updateGUI(const KConfigGroup &cfg);
     void saveSettings(KConfigGroup &cfg);
     void cmdLineFocus();  // command line receive's keyboard focus
@@ -94,17 +94,18 @@ public:
     }
     void swapSides();
     void setPanelSize(bool leftPanel, int percent);
+    bool isTerminalEmulatorFullscreen();
 
 public slots:
     void slotSetActiveManager(PanelManager *manager);
     void slotPathChanged(ListPanel *p);
-    void slotTerminalEmulator(bool);
     // Tab - switch focus
     void panelSwitch();
     void toggleVerticalMode();
 
+    void setTerminalEmulator(bool show, bool fullscreen = false);
     void focusTerminalEmulator();
-    void switchFullScreenTE();
+    void toggleFullScreenTerminalEmulator();
 
     void focusUp();
     void focusDown();
@@ -113,8 +114,6 @@ public slots:
     void loadPanelProfiles(QString group);
     void savePanelProfiles(QString group);
 
-    void killTerminalEmulator();
-
     void draggingTab(PanelManager *from, QMouseEvent *e);
     void draggingTabFinished(PanelManager *from, QMouseEvent *e);
 
@@ -122,7 +121,6 @@ private:
     int getFocusCandidates(QVector<QWidget*> &widgets);
     bool cursorIsOnOtherSide(PanelManager *of, const QPoint &globalPos);
     PanelManager *createManager(bool left);
-    QList<int> getTerminalEmulatorSplitterSizes();
 
     KFnKeys   *_fnKeys;          // function keys
     KCMDLine    *_cmdLine;                   // command line widget

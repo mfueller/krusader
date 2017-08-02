@@ -36,9 +36,10 @@
 
 #include <KConfigCore/KSharedConfig>
 
-#include "../krglobal.h"
+#include "../FileSystem/filesystem.h"
 #include "../Panel/krpanel.h"
 #include "../Panel/panelfunc.h"
+#include "../krglobal.h"
 
 DiskUsageViewer::DiskUsageViewer(QWidget *parent)
         : QWidget(parent), diskUsage(0), statusLabel(0)
@@ -61,7 +62,7 @@ void DiskUsageViewer::openUrl(QUrl url)
     if (diskUsage == 0) {
         diskUsage = new DiskUsage("DiskUsageViewer", this);
 
-        connect(diskUsage, SIGNAL(enteringDirectory(Directory *)), this, SLOT(slotUpdateStatus()));
+        connect(diskUsage, SIGNAL(enteringDirectory(Directory*)), this, SLOT(slotUpdateStatus()));
         connect(diskUsage, SIGNAL(status(QString)), this, SLOT(slotUpdateStatus(QString)));
         connect(diskUsage, SIGNAL(newSearch()), this, SLOT(slotNewSearch()));
         layout->addWidget(diskUsage, 0, 0);
@@ -80,8 +81,8 @@ void DiskUsageViewer::openUrl(QUrl url)
     QUrl baseURL = diskUsage->getBaseURL();
     if (!diskUsage->isLoading() && !baseURL.isEmpty()) {
         if (url.scheme() == baseURL.scheme() && (url.host().isEmpty() || url.host() == baseURL.host())) {
-            QString baseStr = vfs::ensureTrailingSlash(baseURL).path();
-            QString urlStr = vfs::ensureTrailingSlash(url).path();
+            QString baseStr = FileSystem::ensureTrailingSlash(baseURL).path();
+            QString urlStr = FileSystem::ensureTrailingSlash(url).path();
 
             if (urlStr.startsWith(baseStr)) {
                 QString relURL = urlStr.mid(baseStr.length());
@@ -125,6 +126,6 @@ void DiskUsageViewer::slotUpdateStatus(QString status)
 
 void DiskUsageViewer::slotNewSearch()
 {
-    diskUsage->load(ACTIVE_PANEL->func->files()->currentDirectory());
+    diskUsage->load(ACTIVE_PANEL->virtualPath());
 }
 

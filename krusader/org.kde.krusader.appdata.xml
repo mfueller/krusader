@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component type="desktop">
   <id>org.kde.krusader.desktop</id>
-  <metadata_license>GFDL-1.2-without-invariant</metadata_license>
+  <metadata_license>GFDL-1.3</metadata_license>
+  <project_license>GPL-2.0 OR GPL-3.0</project_license>
   <name>Krusader</name>
   <name xml:lang="ast">Krusader</name>
   <name xml:lang="ca">Krusader</name>
@@ -12,6 +13,7 @@
   <name xml:lang="en-GB">Krusader</name>
   <name xml:lang="es">Krusader</name>
   <name xml:lang="fi">Krusader</name>
+  <name xml:lang="fr">Krusader</name>
   <name xml:lang="gl">Krusader</name>
   <name xml:lang="it">Krusader</name>
   <name xml:lang="nl">Krusader</name>
@@ -29,7 +31,6 @@
   <name xml:lang="x-test">xxKrusaderxx</name>
   <name xml:lang="zh-CN">Krusader</name>
   <summary>File Manager</summary>
-  <summary xml:lang="ast">Xestor de ficheros</summary>
   <summary xml:lang="ca">Gestor de fitxers</summary>
   <summary xml:lang="ca-valencia">Gestor de fitxers</summary>
   <summary xml:lang="cs">Správce souborů</summary>
@@ -38,6 +39,7 @@
   <summary xml:lang="en-GB">File Manager</summary>
   <summary xml:lang="es">Gestor de archivos</summary>
   <summary xml:lang="fi">Tiedostonhallinta</summary>
+  <summary xml:lang="fr">Gestionnaire de fichier</summary>
   <summary xml:lang="gl">Xestor de ficheiros</summary>
   <summary xml:lang="it">Gestore di file</summary>
   <summary xml:lang="nl">Bestandsbeheerder</summary>
@@ -79,7 +81,6 @@
     <p xml:lang="uk">Krusader — двопанельна програма для керування файлами</p>
     <p xml:lang="x-test">xxKrusader is an advanced twin panel (commander style) file managerxx</p>
     <p>Features:</p>
-    <p xml:lang="ast">Carauterístiques:</p>
     <p xml:lang="ca">Característiques:</p>
     <p xml:lang="ca-valencia">Característiques:</p>
     <p xml:lang="cs">Vlastnosti:</p>
@@ -88,6 +89,7 @@
     <p xml:lang="en-GB">Features:</p>
     <p xml:lang="es">Funciones:</p>
     <p xml:lang="fi">Ominaisuuksia:</p>
+    <p xml:lang="fr">Fonctionnalités :</p>
     <p xml:lang="gl">Funcionalidades:</p>
     <p xml:lang="it">Caratteristiche:</p>
     <p xml:lang="nl">Mogelijkheden:</p>
@@ -152,7 +154,6 @@
       <li xml:lang="uk">Підтримка монтування і демонтування файлових систем</li>
       <li xml:lang="x-test">xxMounted filesystem supportxx</li>
       <li>FTP support</li>
-      <li xml:lang="ast">Sofitu FTP</li>
       <li xml:lang="ca">Compatibilitat amb FTP</li>
       <li xml:lang="ca-valencia">Compatibilitat amb FTP</li>
       <li xml:lang="de">Unterstützung für FTP</li>
@@ -177,9 +178,8 @@
       <li xml:lang="x-test">xxFTP supportxx</li>
       <li xml:lang="zh-CN">FTP 支持</li>
       <li>Advanced search module</li>
-      <li xml:lang="ast">Módulu de gueta avanzáu</li>
       <li xml:lang="ca">Mòdul de cerca avançada</li>
-      <li xml:lang="ca-valencia">Mòdul de cerca avançada</li>
+      <li xml:lang="ca-valencia">Mòdul de busca avançada</li>
       <li xml:lang="de">Erweitertes Suchmodul</li>
       <li xml:lang="el">Άρθρωμα προηγμένης αναζήτησης</li>
       <li xml:lang="en-GB">Advanced search module</li>
@@ -201,7 +201,6 @@
       <li xml:lang="uk">Модуль пошуку із широкими можливостями</li>
       <li xml:lang="x-test">xxAdvanced search modulexx</li>
       <li>Internal viewer/editor</li>
-      <li xml:lang="ast">Visor/Editor internu</li>
       <li xml:lang="ca">Visor/editor intern</li>
       <li xml:lang="ca-valencia">Visor/editor intern</li>
       <li xml:lang="de">Interner Betrachter und Editor</li>
@@ -225,11 +224,11 @@
       <li xml:lang="uk">Вбудований модуль для перегляду і редагування даних</li>
       <li xml:lang="x-test">xxInternal viewer/editorxx</li>
       <li>Folder synchronisation</li>
-      <li xml:lang="ast">Sincronización de carpetes</li>
       <li xml:lang="ca">Sincronització de carpetes</li>
       <li xml:lang="ca-valencia">Sincronització de carpetes</li>
       <li xml:lang="cs">Synchronizace složek</li>
       <li xml:lang="de">Abgleich von Ordnern</li>
+      <li xml:lang="el">Συγχρονισμός φακέλων</li>
       <li xml:lang="en-GB">Folder synchronisation</li>
       <li xml:lang="es">Sincronización de carpetas</li>
       <li xml:lang="fi">Kansioiden synkronointi</li>

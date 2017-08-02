@@ -22,6 +22,7 @@
 #include "../defaults.h"
 
 // QtCore
+#include <QDebug>
 #include <QFile>
 #include <QList>
 // QtGui
@@ -219,7 +220,7 @@ bool KrColorSettings::isColorNameValid(const QString & settingName)
 bool KrColorSettings::setColorValue(const QString & settingName, const QColor & color)
 {
     if (!isColorNameValid(settingName)) {
-        krOut << "Invalid color setting name: " << settingName << endl;
+        qWarning() << "Invalid color setting name: " << settingName;
         return false;
     }
     m_impl->m_colorValues[settingName] = color;
@@ -229,7 +230,7 @@ bool KrColorSettings::setColorValue(const QString & settingName, const QColor & 
 QColor KrColorSettings::getColorValue(const QString & settingName) const
 {
     if (!isColorNameValid(settingName)) {
-        krOut << "Invalid color setting name: " << settingName << endl;
+        qWarning() << "Invalid color setting name: " << settingName;
         return QColor();
     }
     return m_impl->m_colorValues[settingName];
@@ -238,7 +239,7 @@ QColor KrColorSettings::getColorValue(const QString & settingName) const
 bool KrColorSettings::setColorTextValue(const QString & settingName, const QString & colorText)
 {
     if (!isColorNameValid(settingName)) {
-        krOut << "Invalid color setting name: " << settingName << endl;
+        qWarning() << "Invalid color setting name: " << settingName;
         return false;
     }
     m_impl->m_colorTextValues[settingName] = colorText;
@@ -248,7 +249,7 @@ bool KrColorSettings::setColorTextValue(const QString & settingName, const QStri
 QString KrColorSettings::getColorTextValue(const QString & settingName) const
 {
     if (!isColorNameValid(settingName)) {
-        krOut << "Invalid color setting name: " << settingName << endl;
+        qWarning() << "Invalid color setting name: " << settingName;
         return QString();
     }
     return m_impl->m_colorTextValues[settingName];
@@ -267,7 +268,7 @@ bool KrColorSettings::isNumNameValid(const QString & settingName)
 bool KrColorSettings::setNumValue(const QString & settingName, int value)
 {
     if (!isNumNameValid(settingName)) {
-        krOut << "Invalid number setting name: " << settingName << endl;
+        qWarning() << "Invalid number setting name: " << settingName;
         return false;
     }
     m_impl->m_numValues[settingName] = value;
@@ -277,7 +278,7 @@ bool KrColorSettings::setNumValue(const QString & settingName, int value)
 int KrColorSettings::getNumValue(const QString & settingName, int defaultValue) const
 {
     if (!isNumNameValid(settingName)) {
-        krOut << "Invalid number setting name: " << settingName << endl;
+        qWarning() << "Invalid number setting name: " << settingName;
         return 0;
     }
     if (!m_impl->m_numValues.contains(settingName))
@@ -298,7 +299,7 @@ bool KrColorSettings::isBoolNameValid(const QString & settingName)
 bool KrColorSettings::setBoolValue(const QString & settingName, bool value)
 {
     if (!isBoolNameValid(settingName)) {
-        krOut << "Invalid bool setting name: " << settingName << endl;
+        qWarning() << "Invalid bool setting name: " << settingName;
         return false;
     }
     m_impl->m_boolValues[settingName] = value;
@@ -308,7 +309,7 @@ bool KrColorSettings::setBoolValue(const QString & settingName, bool value)
 int KrColorSettings::getBoolValue(const QString & settingName, bool defaultValue) const
 {
     if (!isBoolNameValid(settingName)) {
-        krOut << "Invalid bool setting name: " << settingName << endl;
+        qWarning() << "Invalid bool setting name: " << settingName;
         return false;
     }
     if (!m_impl->m_boolValues.contains(settingName))

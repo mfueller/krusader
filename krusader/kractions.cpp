@@ -46,12 +46,12 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 #include "krusaderview.h"
 #include "krslots.h"
 #include "krtrashhandler.h"
-#include "Panel/krviewfactory.h"
-#include "GUI/krremoteencodingmenu.h"
-#include "UserAction/useraction.h"
-#include "MountMan/kmountman.h"
 #include "Dialogs/popularurls.h"
+#include "GUI/krremoteencodingmenu.h"
 #include "JobMan/jobman.h"
+#include "MountMan/kmountman.h"
+#include "Panel/PanelView/krviewfactory.h"
+#include "UserAction/useraction.h"
 
 QAction *KrActions::actCompare = 0;
 QAction *KrActions::actDiskUsage = 0;
@@ -81,7 +81,7 @@ QAction *KrActions::actManageUseractions = 0;
 #ifdef SYNCHRONIZER_ENABLED
 QAction *KrActions::actSyncDirs = 0;
 #endif
-QAction *KrActions::actF10 = 0;
+QAction *KrActions::actF10Quit = 0;
 QAction *KrActions::actEmptyTrash = 0;
 QAction *KrActions::actTrashBin = 0;
 QAction *KrActions::actPopularUrls = 0;
@@ -179,7 +179,7 @@ void KrActions::setupActions(Krusader *krusaderApp)
     //actNewTool =    0;//new QAction(i18n("&Add a new tool"),                          0, krusaderApp, 0, actionCollection(), "add tool");
     //actToolsSetup = 0;//new QAction(i18n("&Tools Menu Setup"),                        0, 0, krusaderApp, 0, actionCollection(), "tools setup");
     //KStandardAction::print(SLOTS, 0,actionCollection(),"std_print");
-    //KStandardAction::showMenubar( SLOTS, SLOT( showMenubar() ), actionCollection(), "std_menubar" );
+    //KStandardAction::showMenubar( SLOTS, SLOT(showMenubar()), actionCollection(), "std_menubar" );
 
     /* Shortcut disabled because of the Terminal Emulator bug. */
     KConfigGroup group(krConfig, "Private");
@@ -200,7 +200,7 @@ void KrActions::setupActions(Krusader *krusaderApp)
     krusaderApp->actionCollection()->addAction("toggle actions toolbar", actShowActionsToolBar);
 
     actShowStatusBar = KStandardAction::showStatusbar(SLOTS, SLOT(updateStatusbarVisibility()), krusaderApp->actionCollection());
-    KStandardAction::quit(krusaderApp, SLOT(close()), krusaderApp->actionCollection());
+    KStandardAction::quit(krusaderApp, SLOT(quit()), krusaderApp->actionCollection());
     KStandardAction::configureToolbars(krusaderApp, SLOT(configureToolbars()), krusaderApp->actionCollection());
     KStandardAction::keyBindings(krusaderApp->guiFactory(), SLOT(configureShortcuts()), krusaderApp->actionCollection());
 
@@ -209,7 +209,7 @@ void KrActions::setupActions(Krusader *krusaderApp)
 
     NEW_KTOGGLEACTION(actToggleCmdline, i18n("Show &Command Line"), 0, 0, SLOTS, SLOT(toggleCmdline()), "toggle command line");
 
-    NEW_KTOGGLEACTION(actToggleTerminal, i18n("Show Terminal &Emulator"), 0, Qt::ALT + Qt::CTRL + Qt::Key_T, SLOTS, SLOT(toggleTerminal()), "toggle terminal emulator");
+    NEW_KTOGGLEACTION(actToggleTerminal, i18n("Show &Embedded Terminal"), 0, Qt::ALT + Qt::CTRL + Qt::Key_T, SLOTS, SLOT(toggleTerminal()), "toggle terminal emulator");
 
 
     NEW_KTOGGLEACTION(actToggleHidden, i18n("Show &Hidden Files"), 0, Qt::ALT + Qt::Key_Period, SLOTS, SLOT(showHiddenFiles(bool)), "toggle hidden files");
@@ -218,7 +218,7 @@ void KrActions::setupActions(Krusader *krusaderApp)
 
     NEW_KACTION(actEmptyTrash, i18n("Empty Trash"), "trash-empty", 0, SLOTS, SLOT(emptyTrash()), "emptytrash");
 
-    NEW_KACTION(actTrashBin, i18n("Trash bin"), KrTrashHandler::trashIcon(), 0, SLOTS, SLOT(trashBin()), "trashbin");
+    NEW_KACTION(actTrashBin, i18n("Trash Popup Menu"), KrTrashHandler::trashIcon(), 0, SLOTS, SLOT(trashPopupMenu()), "trashbin");
 
     NEW_KACTION(actSwapSides, i18n("Sw&ap Sides"), 0, Qt::CTRL + Qt::SHIFT + Qt::Key_U, SLOTS, SLOT(toggleSwapSides()), "toggle swap sides");
     actToggleHidden->setChecked(KConfigGroup(krConfig, "Look&Feel").readEntry("Show Hidden", _ShowHidden));
@@ -290,21 +290,19 @@ void KrActions::setupActions(Krusader *krusaderApp)
 
     NEW_KACTION(actAddBookmark, i18n("Add Bookmark"), "bookmark-new", KStandardShortcut::addBookmark(), SLOTS, SLOT(addBookmark()), "add bookmark");
     NEW_KACTION(actVerticalMode, i18n("Vertical Mode"), "view-split-top-bottom", Qt::ALT + Qt::CTRL + Qt::Key_R, MAIN_VIEW, SLOT(toggleVerticalMode()), "toggle vertical mode");
-#if 0
-    actUserMenu = new QAction(i18n("User Menu"), ALT + Qt::Key_QuoteLeft, SLOTS,
-                              SLOT(userMenu()), actionCollection(), "user menu");
-#else
     actUserMenu = new KActionMenu(i18n("User&actions"), krusaderApp);
     krusaderApp->actionCollection()->addAction("useractionmenu", actUserMenu);
-#endif
     NEW_KACTION(actManageUseractions, i18n("Manage User Actions..."), 0, 0, SLOTS, SLOT(manageUseractions()), "manage useractions");
 
     actRemoteEncoding = new KrRemoteEncodingMenu(i18n("Select Remote Charset"), "character-set", krusaderApp->actionCollection());
 
-    NEW_KACTION(actF10, i18n("Quit"), 0, Qt::Key_F10, krusaderApp, SLOT(close()) , "F10_Quit");
-    NEW_KACTION(actPopularUrls, i18n("Popular URLs..."), 0, Qt::CTRL + Qt::Key_Z, krusaderApp->popularUrls(), SLOT(showDialog()), "Popular_Urls");
-    NEW_KACTION(actSwitchFullScreenTE, i18n("Toggle Fullscreen Terminal Emulator"), 0, Qt::CTRL + Qt::Key_F, MAIN_VIEW, SLOT(switchFullScreenTE()), "switch_fullscreen_te");
+    NEW_KACTION(actF10Quit, i18n("Quit"), 0, Qt::Key_F10, krusaderApp, SLOT(quit()) , "F10_Quit");
+    actF10Quit->setToolTip(i18n("Quit Krusader."));
 
+    NEW_KACTION(actPopularUrls, i18n("Popular URLs..."), 0, Qt::CTRL + Qt::Key_Z, krusaderApp->popularUrls(), SLOT(showDialog()), "Popular_Urls");
+    NEW_KACTION(actSwitchFullScreenTE, i18n("Toggle Fullscreen Embedded Terminal"), 0,
+                Qt::CTRL + Qt::ALT + Qt::Key_F, MAIN_VIEW, SLOT(toggleFullScreenTerminalEmulator()),
+                "switch_fullscreen_te");
 
     NEW_KACTION(tmp, i18n("Move Focus Up"), 0, Qt::CTRL + Qt::SHIFT + Qt::Key_Up, MAIN_VIEW, SLOT(focusUp()), "move_focus_up");
     NEW_KACTION(tmp, i18n("Move Focus Down"), 0, Qt::CTRL + Qt::SHIFT + Qt::Key_Down, MAIN_VIEW, SLOT(focusDown()), "move_focus_down");

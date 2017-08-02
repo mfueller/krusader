@@ -29,7 +29,7 @@
  ***************************************************************************/
 
 #include "combiner.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystem.h"
 
 // QtCore
 #include <QFileInfo>
@@ -95,10 +95,10 @@ void Combiner::combine()
 
         combineReadJob = KIO::get(splURL, KIO::NoReload, KIO::HideProgressInfo);
 
-        connect(combineReadJob, SIGNAL(data(KIO::Job *, const QByteArray &)),
-                this, SLOT(combineSplitFileDataReceived(KIO::Job *, const QByteArray &)));
+        connect(combineReadJob, SIGNAL(data(KIO::Job*,QByteArray)),
+                this, SLOT(combineSplitFileDataReceived(KIO::Job*,QByteArray)));
         connect(combineReadJob, SIGNAL(result(KJob*)),
-                this, SLOT(combineSplitFileFinished(KJob *)));
+                this, SLOT(combineSplitFileFinished(KJob*)));
     }
 
     exec();
@@ -164,7 +164,7 @@ void Combiner::combineSplitFileFinished(KJob *job)
 void Combiner::statDest()
 {
     if (writeURL.isEmpty()) {
-        writeURL = vfs::ensureTrailingSlash(destinationURL);
+        writeURL = FileSystem::ensureTrailingSlash(destinationURL);
         if (hasValidSplitFile)
             writeURL.setPath(writeURL.path() + expectedFileName);
         else if (unixNaming)
@@ -185,7 +185,7 @@ void Combiner::statDestResult(KJob* job)
         if (job->error() == KIO::ERR_DOES_NOT_EXIST) {
             openNextFile();
         } else {
-            static_cast<KIO::Job*>(job)->ui()->showErrorMessage();
+            static_cast<KIO::Job*>(job)->uiDelegate()->showErrorMessage();
             emit reject();
         }
     } else { // destination already exists
@@ -239,13 +239,13 @@ void Combiner::openNextFile()
     /* creating a read job */
     combineReadJob = KIO::get(readURL, KIO::NoReload, KIO::HideProgressInfo);
 
-    connect(combineReadJob, SIGNAL(data(KIO::Job *, const QByteArray &)),
-            this, SLOT(combineDataReceived(KIO::Job *, const QByteArray &)));
+    connect(combineReadJob, SIGNAL(data(KIO::Job*,QByteArray)),
+            this, SLOT(combineDataReceived(KIO::Job*,QByteArray)));
     connect(combineReadJob, SIGNAL(result(KJob*)),
-            this, SLOT(combineReceiveFinished(KJob *)));
+            this, SLOT(combineReceiveFinished(KJob*)));
     if (hasValidSplitFile)
-        connect(combineReadJob, SIGNAL(percent(KJob *, unsigned long)),
-                this, SLOT(combineWritePercent(KJob *, unsigned long)));
+        connect(combineReadJob, SIGNAL(percent(KJob*,ulong)),
+                this, SLOT(combineWritePercent(KJob*,ulong)));
 
 }
 
@@ -262,10 +262,10 @@ void Combiner::combineDataReceived(KIO::Job *, const QByteArray &byteArray)
     if (combineWriteJob == 0) {
         combineWriteJob = KIO::put(writeURL, permissions, KIO::HideProgressInfo | KIO::Overwrite);
 
-        connect(combineWriteJob, SIGNAL(dataReq(KIO::Job *, QByteArray &)),
-                this, SLOT(combineDataSend(KIO::Job *, QByteArray &)));
+        connect(combineWriteJob, SIGNAL(dataReq(KIO::Job*,QByteArray&)),
+                this, SLOT(combineDataSend(KIO::Job*,QByteArray&)));
         connect(combineWriteJob, SIGNAL(result(KJob*)),
-                this, SLOT(combineSendFinished(KJob *)));
+                this, SLOT(combineSendFinished(KJob*)));
     }
 
      // continue writing and suspend read job until received data is handed over to the write job
@@ -303,7 +303,7 @@ void Combiner::combineReceiveFinished(KJob *job)
             }
         } else {
             combineAbortJobs();
-            static_cast<KIO::Job*>(job)->ui()->showErrorMessage();
+            static_cast<KIO::Job*>(job)->uiDelegate()->showErrorMessage();
             emit reject();
         }
     } else
@@ -328,7 +328,7 @@ void Combiner::combineSendFinished(KJob *job)
 
     if (job->error()) {   /* any error occurred? */
         combineAbortJobs();
-        static_cast<KIO::Job*>(job)->ui()->showErrorMessage();
+        static_cast<KIO::Job*>(job)->uiDelegate()->showErrorMessage();
         emit reject();
     } else if (!error.isEmpty()) {  /* was any error message at reading ? */
         combineAbortJobs();             /* we cannot write out it in combineReceiveFinished */

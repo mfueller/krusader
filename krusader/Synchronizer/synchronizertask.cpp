@@ -40,7 +40,7 @@
 #include "synchronizer.h"
 #include "synchronizerfileitem.h"
 #include "synchronizerdirlist.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystem.h"
 
 CompareTask::CompareTask(SynchronizerFileItem *parentIn, const QString &leftURL,
                          const QString &rightURL, const QString &leftDir,
@@ -166,14 +166,14 @@ void CompareContentTask::start()
         leftReadJob = KIO::get(leftURL, KIO::NoReload, KIO::HideProgressInfo);
         rightReadJob = KIO::get(rightURL, KIO::NoReload, KIO::HideProgressInfo);
 
-        connect(leftReadJob, SIGNAL(data(KIO::Job *, const QByteArray &)),
-                this, SLOT(slotDataReceived(KIO::Job *, const QByteArray &)));
-        connect(rightReadJob, SIGNAL(data(KIO::Job *, const QByteArray &)),
-                this, SLOT(slotDataReceived(KIO::Job *, const QByteArray &)));
+        connect(leftReadJob, SIGNAL(data(KIO::Job*,QByteArray)),
+                this, SLOT(slotDataReceived(KIO::Job*,QByteArray)));
+        connect(rightReadJob, SIGNAL(data(KIO::Job*,QByteArray)),
+                this, SLOT(slotDataReceived(KIO::Job*,QByteArray)));
         connect(leftReadJob, SIGNAL(result(KJob*)),
-                this, SLOT(slotFinished(KJob *)));
+                this, SLOT(slotFinished(KJob*)));
         connect(rightReadJob, SIGNAL(result(KJob*)),
-                this, SLOT(slotFinished(KJob *)));
+                this, SLOT(slotFinished(KJob*)));
 
         rightReadJob->suspend();
 

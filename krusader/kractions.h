@@ -45,7 +45,7 @@ class KrActions : public QObject
 {
     Q_OBJECT
 public:
-    KrActions(QObject *parent) : QObject(parent) {}
+    explicit KrActions(QObject *parent) : QObject(parent) {}
 
     // Actions
     static QAction *actCompare;
@@ -69,7 +69,7 @@ public:
     static KToggleAction *actToggleTerminal;
     static QAction *actSelectNewerAndSingle, *actSelectNewer, *actSelectSingle,
     *actSelectDifferentAndSingle, *actSelectDifferent;
-    static QAction *actF10;
+    static QAction *actF10Quit;
     /** actions for setting the execution mode of commands from commanddline */
     static QAction *actExecStartAndForget,
     *actExecCollectSeparate, *actExecCollectTogether,
@@ -105,7 +105,6 @@ public:
 #define krRoot            KrActions::actRoot
 #define krFind            KrActions::actFind           // find files
 #define krMultiRename     KrActions::actMultiRename
-#define krToggleTerminal  KrActions::actToggleTerminal
 //#define krToggleSortByExt KrActions::actToggleSortByExt// Sort by extension
 #define krSwitchFullScreenTE KrActions::actSwitchFullScreenTE
 #define krCmdlinePopup    KrActions::actCmdlinePopup

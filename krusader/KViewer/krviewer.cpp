@@ -324,7 +324,7 @@ void KrViewer::edit(QUrl url, Mode mode, int new_window, QWidget * parent)
         proc << cmdArgs << url.toDisplayString(QUrl::PreferLocalFile);
         if (!proc.startDetached())
             KMessageBox::sorry(krMainWindow, i18n("Can not open \"%1\"", editor));
-        return ;
+        return;
     }
 
     KrViewer* viewer = getViewer(new_window);
@@ -347,11 +347,11 @@ void KrViewer::addTab(PanelViewerBase *pvb)
 
     tabBar.show();
 
-    connect(pvb, SIGNAL(openUrlFinished(PanelViewerBase*, bool)),
-                 SLOT(openUrlFinished(PanelViewerBase*, bool)));
+    connect(pvb, SIGNAL(openUrlFinished(PanelViewerBase*,bool)),
+                 SLOT(openUrlFinished(PanelViewerBase*,bool)));
 
-    connect(pvb, SIGNAL(urlChanged(PanelViewerBase *, const QUrl &)),
-            this,  SLOT(tabURLChanged(PanelViewerBase *, const QUrl &)));
+    connect(pvb, SIGNAL(urlChanged(PanelViewerBase*,QUrl)),
+            this,  SLOT(tabURLChanged(PanelViewerBase*,QUrl)));
 }
 
 void KrViewer::tabURLChanged(PanelViewerBase *pvb, const QUrl &url)
@@ -373,7 +373,9 @@ void KrViewer::openUrlFinished(PanelViewerBase *pvb, bool success)
                     part->widget()->setFocus();
             }
         }
-    }
+    } else {
+        tabCloseRequest(tabBar.currentIndex(), false);
+      }
 }
 
 void KrViewer::tabChanged(int index)
@@ -669,8 +671,8 @@ void KrViewer::addPart(KParts::ReadOnlyPart *part)
         return;
     }
 
-    connect(part, SIGNAL(setStatusBarText(const QString&)),
-            this, SLOT(slotSetStatusBarText(const QString&)));
+    connect(part, SIGNAL(setStatusBarText(QString)),
+            this, SLOT(slotSetStatusBarText(QString)));
     // filtering out the key events
     part->installEventFilter(this);
 

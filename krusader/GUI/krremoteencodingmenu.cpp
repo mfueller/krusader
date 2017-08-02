@@ -79,7 +79,7 @@ void KrRemoteEncodingMenu::slotAboutToShow()
         }
 
         if (!found)
-            qWarning() << Q_FUNC_INFO << "could not find entry for charset=" << charset << endl;
+            qWarning() << Q_FUNC_INFO << "could not find entry for charset=" << charset;
     } else {
         foreach(QAction *act, acts) {
             if (act->data().canConvert<int> ()) {
@@ -106,8 +106,8 @@ void KrRemoteEncodingMenu::loadSettings()
     encodingNames = KCharsets::charsets()->descriptiveEncodingNames();
 
     QMenu *qmenu = menu();
-    disconnect(qmenu, SIGNAL(triggered(QAction *)), this, SLOT(slotTriggered(QAction *)));
-    connect(qmenu, SIGNAL(triggered(QAction *)), this, SLOT(slotTriggered(QAction *)));
+    disconnect(qmenu, SIGNAL(triggered(QAction*)), this, SLOT(slotTriggered(QAction*)));
+    connect(qmenu, SIGNAL(triggered(QAction*)), this, SLOT(slotTriggered(QAction*)));
     qmenu->clear();
 
     QStringList::ConstIterator it;

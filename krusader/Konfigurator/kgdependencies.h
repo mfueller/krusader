@@ -44,7 +44,7 @@ class KgDependencies : public KonfiguratorPage
     Q_OBJECT
 
 public:
-    KgDependencies(bool first, QWidget* parent = 0);
+    explicit KgDependencies(bool first, QWidget* parent = 0);
 
     virtual int activeSubPage() Q_DECL_OVERRIDE;
 
@@ -52,7 +52,7 @@ private:
     void addApplication(QString name, QGridLayout *grid, int row, QWidget *parent, int page, QString additionalList = QString());
 
 public slots:
-    void slotApply(QObject *obj, QString cls, QString name);
+    void slotApply(QObject *obj, QString configGroup, QString name);
 
 private:
     QTabWidget *tabWidget;

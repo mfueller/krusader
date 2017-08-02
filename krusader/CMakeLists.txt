@@ -7,6 +7,7 @@ add_subdirectory(Archive)
 add_subdirectory(BookMan)
 add_subdirectory(Dialogs)
 add_subdirectory(DiskUsage)
+add_subdirectory(FileSystem)
 add_subdirectory(Filter)
 add_subdirectory(GUI)
 add_subdirectory(Konfigurator)
@@ -18,8 +19,6 @@ add_subdirectory(Panel)
 add_subdirectory(Search)
 add_subdirectory(Splitter)
 add_subdirectory(UserAction)
-add_subdirectory(UserMenu)
-add_subdirectory(VFS)
 
 if(SYNCHRONIZER_ENABLED)
     add_subdirectory(Synchronizer)
@@ -40,10 +39,11 @@ set(krusader_SRCS
     krusader.cpp
     krslots.cpp
     kicons.cpp
-    krtrashhandler.cpp)
+    krdebuglogger.cpp
+)
 
-# TODO porting: missing kf5 equivalent
-#kde4_add_app_icon(krusader_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/hi*-app-krusader_user.png")
+file(GLOB ICONS_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/icons/*-apps-krusader_user.png")
+ecm_add_app_icon(krusader_SRCS ICONS ${ICONS_SRCS})
 
 qt5_add_resources(krusader_RC_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/resources.qrc" )
 
@@ -51,6 +51,7 @@ add_executable(krusader ${krusader_SRCS} ${krusader_RC_SRCS})
 
 target_link_libraries(krusader
                       Panel
+                      PanelView
                       BookMan
                       Dialogs
                       DiskUsage
@@ -58,10 +59,9 @@ target_link_libraries(krusader
                       Konfigurator
                       KViewer
                       MountMan
-                      VFS
+                      FileSystem
                       Search
                       Splitter
-                      UserMenu
                       Locate
                       UserAction
                       ActionMan
@@ -75,6 +75,7 @@ target_link_libraries(krusader
                       KF5::Parts
                       KF5::WindowSystem
                       Qt5::PrintSupport
+                      Qt5::Concurrent
 )
 
 if(SYNCHRONIZER_ENABLED)
@@ -83,7 +84,6 @@ endif(SYNCHRONIZER_ENABLED)
 
 install(TARGETS krusader ${INSTALL_TARGETS_DEFAULT_ARGS})
 install(PROGRAMS org.kde.krusader.desktop
-              org.kde.krusader.root-mode.desktop
         DESTINATION ${XDG_APPS_INSTALL_DIR} )
 install(FILES krusaderui.rc
               krusaderlisterui.rc

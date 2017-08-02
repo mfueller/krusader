@@ -55,15 +55,15 @@
 
 #include "../Archive/krarchandler.h"
 
+#include "defaults.h"
+#include "krservices.h"
+#include "krslots.h"
 #include "krusader.h"
+#include "krusaderversion.h"
 #include "krusaderview.h"
 #include "panelmanager.h"
-#include "krusaderversion.h"
-#include "krslots.h"
-#include "defaults.h"
-#include "Panel/krviewfactory.h"
 
-static const char *description = I18N_NOOP("Krusader\nTwin-Panel File Manager for KDE");
+static const char *description = I18N_NOOP("Krusader\nTwin-Panel File Manager by KDE");
 
 static void sigterm_handler(int i)
 {
@@ -132,6 +132,11 @@ int main(int argc, char *argv[])
     }*/
 // ============ end icon-stuff ===========
 
+    // set global log message format
+    qSetMessagePattern(KrServices::GLOBAL_MESSAGE_PATTERN);
+
+    // prevent qt5-webengine crashing
+    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
     // create the application and set application domain so that calls to i18n get strings from right place.
     QApplication app(argc, argv);
@@ -151,6 +156,9 @@ int main(int argc, char *argv[])
         i18n("Feedback:\nhttps://forum.kde.org/viewforum.php?f=225\n\nIRC\nserver: "
              "irc.freenode.net, channel: #krusader"),
         QStringLiteral("https://krusader.org"));
+
+    aboutData.setOrganizationDomain(QByteArray("kde.org"));
+    aboutData.setDesktopFileName(QStringLiteral("org.kde.krusader"));
 
     aboutData.addAuthor(i18n("Rafi Yanai"), i18n("Author (retired)"), QStringLiteral("yanai@users.sourceforge.net"));
     aboutData.addAuthor(i18n("Shie Erlich"), i18n("Author (retired)"), QStringLiteral("erlich@users.sourceforge.net"));
@@ -235,11 +243,15 @@ int main(int argc, char *argv[])
     parser.addOption(QCommandLineOption(QStringList() << QLatin1String("left"), i18n("Start left panel at <path>"), QLatin1String("path")));
     parser.addOption(QCommandLineOption(QStringList() << QLatin1String("right"), i18n("Start right panel at <path>"), QLatin1String("path")));
     parser.addOption(QCommandLineOption(QStringList() << QLatin1String("profile"), i18n("Load this profile on startup"), QLatin1String("panel-profile")));
+    parser.addOption(QCommandLineOption(QStringList() << "d" << QLatin1String("debug"), i18n("Enable debug output")));
     parser.addPositionalArgument(QLatin1String("url"), i18n("URL to open"));
 
     // check for command line arguments
     parser.process(app);
     aboutData.processCommandLine(&parser);
+
+    // set global message handler
+    KrServices::setGlobalKrMessageHandler(parser.isSet("debug"));
 
     KConfigGroup cfg(KSharedConfig::openConfig(), QStringLiteral("Look&Feel"));
     bool singleInstanceMode = cfg.readEntry("Single Instance Mode", _SingleInstanceMode);

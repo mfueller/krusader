@@ -30,9 +30,10 @@ A
 
 #include "krpreviewjob.h"
 
-#include "krview.h"
-#include "krviewitem.h"
-#include "../VFS/vfile.h"
+#include "krpreviews.h"
+#include "PanelView/krview.h"
+#include "PanelView/krviewitem.h"
+#include "../FileSystem/fileitem.h"
 #include "../defaults.h"
 
 #include <stdio.h>
@@ -93,7 +94,7 @@ void KrPreviewJob::slotGotPreview(const KFileItem & item, const QPixmap & previe
 
     _scheduled.removeOne(vi);
 
-    const vfile *file = vi->getVfile();
+    const FileItem *file = vi->getFileItem();
     _parent->addPreview(file, preview);
     vi->redraw();
 
@@ -113,7 +114,7 @@ void KrPreviewJob::slotStartJob()
 
     KFileItemList list;
     for(int i = 0; i < _scheduled.count() && i < MAX_CHUNK_SIZE; i++) {
-        KFileItem fi(_scheduled[i]->getVfile()->vfile_getUrl(), 0, 0);
+        KFileItem fi(_scheduled[i]->getFileItem()->getUrl(), 0, 0);
         list.append(fi);
         _hash.insert(fi, _scheduled[i]);
     }
@@ -122,8 +123,8 @@ void KrPreviewJob::slotStartJob()
     _job->setOverlayIconAlpha(0);
     _job->setOverlayIconSize(0);
     _job->setScaleType(KIO::PreviewJob::ScaledAndCached);
-    connect(_job, SIGNAL(gotPreview(const KFileItem&, const QPixmap&)), SLOT(slotGotPreview(const KFileItem&, const QPixmap&)));
-    connect(_job, SIGNAL(failed(const KFileItem&)), SLOT(slotFailed(const KFileItem&)));
+    connect(_job, SIGNAL(gotPreview(KFileItem,QPixmap)), SLOT(slotGotPreview(KFileItem,QPixmap)));
+    connect(_job, SIGNAL(failed(KFileItem)), SLOT(slotFailed(KFileItem)));
     connect(_job, SIGNAL(result(KJob*)), SLOT(slotJobResult(KJob*)));
 }
 

@@ -46,17 +46,16 @@
 
 #include "../kicons.h"
 #include "../krglobal.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystem.h"
 #include "../Dialogs/krdialogs.h"
 
-DiskUsageGUI::DiskUsageGUI(QUrl openDir, QWidget* parent)
-        : QDialog(parent), exitAtFailure(true)
+DiskUsageGUI::DiskUsageGUI(const QUrl &openDir)
+        : QDialog(nullptr), exitAtFailure(true)
 {
     setWindowTitle(i18n("Krusader::Disk Usage"));
+    setAttribute(Qt::WA_DeleteOnClose);
 
     baseDirectory = openDir;
-    if (!newSearch())
-        return;
 
     QVBoxLayout *mainLayout = new QVBoxLayout;
     setLayout(mainLayout);
@@ -85,7 +84,7 @@ DiskUsageGUI::DiskUsageGUI(QUrl openDir, QWidget* parent)
     duHBox->addWidget(btnDirUp);
     btnDirUp->setToolTip(i18n("Parent folder"));
 
-    QWidget * separatorWidget = new QWidget(duTools);
+    QWidget *separatorWidget = new QWidget(duTools);
     separatorWidget->setMinimumWidth(10);
     duHBox->addWidget(separatorWidget);
 
@@ -126,47 +125,49 @@ DiskUsageGUI::DiskUsageGUI(QUrl openDir, QWidget* parent)
     QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close);
     mainLayout->addWidget(buttonBox);
 
-    connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
-    connect(diskUsage, SIGNAL(status(QString)), this, SLOT(setStatus(QString)));
+    connect(buttonBox, SIGNAL(rejected()), this, SLOT(close()));
+    connect(diskUsage, SIGNAL(status(QString)), this, SLOT(slotStatus(QString)));
     connect(diskUsage, SIGNAL(viewChanged(int)), this, SLOT(slotViewChanged(int)));
-    connect(diskUsage, SIGNAL(newSearch()), this,  SLOT(newSearch()));
+    connect(diskUsage, SIGNAL(newSearch()), this,  SLOT(askDir()));
     connect(diskUsage, SIGNAL(loadFinished(bool)), this,  SLOT(slotLoadFinished(bool)));
-    connect(btnNewSearch, SIGNAL(clicked()), this, SLOT(newSearch()));
-    connect(btnRefresh, SIGNAL(clicked()), this, SLOT(loadUsageInfo()));
+    connect(btnNewSearch, SIGNAL(clicked()), this, SLOT(askDir()));
+    connect(btnRefresh, SIGNAL(clicked()), this, SLOT(slotLoadUsageInfo()));
     connect(btnDirUp, SIGNAL(clicked()), diskUsage, SLOT(dirUp()));
-    connect(btnLines, SIGNAL(clicked()), this, SLOT(selectLinesView()));
-    connect(btnDetailed, SIGNAL(clicked()), this, SLOT(selectListView()));
-    connect(btnFilelight, SIGNAL(clicked()), this, SLOT(selectFilelightView()));
+    connect(btnLines, SIGNAL(clicked()), this, SLOT(slotSelectLinesView()));
+    connect(btnDetailed, SIGNAL(clicked()), this, SLOT(slotSelectListView()));
+    connect(btnFilelight, SIGNAL(clicked()), this, SLOT(slotSelectFilelightView()));
 
     KConfigGroup group(krConfig, "DiskUsage");
 
     int view = group.readEntry("View",  VIEW_LINES);
     if (view < VIEW_LINES || view > VIEW_FILELIGHT)
         view = VIEW_LINES;
+
     diskUsage->setView(view);
 
     sizeX = group.readEntry("Window Width",  QFontMetrics(font()).width("W") * 70);
     sizeY = group.readEntry("Window Height", QFontMetrics(font()).height() * 25);
     resize(sizeX, sizeY);
 
-    if (group.readEntry("Window Maximized",  false))
-        showMaximized();
-    else
-        show();
-
-    exec();
+    if (group.readEntry("Window Maximized",  false)) {
+        setWindowState(windowState() | Qt::WindowMaximized);
+    }
 }
 
-DiskUsageGUI::~DiskUsageGUI()
+void DiskUsageGUI::askDirAndShow()
 {
+    if (askDir()) {
+        show();
+    }
 }
 
 void DiskUsageGUI::slotLoadFinished(bool result)
 {
-    if (exitAtFailure && !result)
-        reject();
-    else
+    if (exitAtFailure && !result) {
+        close();
+    } else {
         exitAtFailure = false;
+    }
 }
 
 void DiskUsageGUI::enableButtons(bool isOn)
@@ -188,7 +189,7 @@ void DiskUsageGUI::resizeEvent(QResizeEvent *e)
     QDialog::resizeEvent(e);
 }
 
-void DiskUsageGUI::reject()
+void DiskUsageGUI::closeEvent(QCloseEvent *event)
 {
     KConfigGroup group(krConfig, "DiskUsage");
     group.writeEntry("Window Width", sizeX);
@@ -196,15 +197,15 @@ void DiskUsageGUI::reject()
     group.writeEntry("Window Maximized", isMaximized());
     group.writeEntry("View", diskUsage->getActiveView());
 
-    QDialog::reject();
+    event->accept();
 }
 
-void DiskUsageGUI::loadUsageInfo()
+void DiskUsageGUI::slotLoadUsageInfo()
 {
     diskUsage->load(baseDirectory);
 }
 
-void DiskUsageGUI::setStatus(QString stat)
+void DiskUsageGUI::slotStatus(QString stat)
 {
     status->setText(stat);
 }
@@ -236,15 +237,17 @@ void DiskUsageGUI::slotViewChanged(int view)
     }
 }
 
-bool DiskUsageGUI::newSearch()
+bool DiskUsageGUI::askDir()
 {
-    // ask the user for the copy dest
+    // ask the user for the copy destX
+    const QUrl newDir =
+        KChooseDir::getDir(i18n("Viewing the usage of folder:"), baseDirectory, baseDirectory);
 
-    QUrl tmp = KChooseDir::getDir(i18n("Viewing the usage of folder:"), baseDirectory, baseDirectory);
-    if (tmp.isEmpty()) return false;
-    baseDirectory = tmp;
+    if (newDir.isEmpty())
+        return false;
 
-    QTimer::singleShot(0, this, SLOT(loadUsageInfo()));
+    baseDirectory = newDir;
+
+    QTimer::singleShot(0, this, SLOT(slotLoadUsageInfo()));
     return true;
 }
-

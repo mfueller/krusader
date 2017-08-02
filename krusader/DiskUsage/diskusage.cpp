@@ -31,6 +31,7 @@
 #include "diskusage.h"
 
 // QtCore
+#include <QDebug>
 #include <QEvent>
 #include <QHash>
 #include <QMimeDatabase>
@@ -55,20 +56,22 @@
 #include <KConfigCore/KSharedConfig>
 #include <KI18n/KLocalizedString>
 #include <KWidgetsAddons/KMessageBox>
+#include <KWidgetsAddons/KStandardGuiItem>
 #include <KIO/Job>
 #include <KIO/DeleteJob>
 
-#include "../VFS/krpermhandler.h"
-#include "../VFS/krvfshandler.h"
-#include "../kicons.h"
-#include "../defaults.h"
-#include "../krglobal.h"
-#include "../Panel/krpanel.h"
-#include "../Panel/panelfunc.h"
-#include "filelightParts/Config.h"
+#include "dufilelight.h"
 #include "dulines.h"
 #include "dulistview.h"
-#include "dufilelight.h"
+#include "filelightParts/Config.h"
+#include "../FileSystem/fileitem.h"
+#include "../FileSystem/filesystemprovider.h"
+#include "../FileSystem/krpermhandler.h"
+#include "../Panel/krpanel.h"
+#include "../Panel/panelfunc.h"
+#include "../defaults.h"
+#include "../kicons.h"
+#include "../krglobal.h"
 
 // these are the values that will exist in the menu
 #define DELETE_ID            90
@@ -166,7 +169,7 @@ LoaderWidget::LoaderWidget(QWidget *parent) : QScrollArea(parent), cancelled(fal
     QSpacerItem* spacer = new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
     hbox->addItem(spacer);
     QPushButton *cancelButton = new QPushButton(hboxWidget);
-    cancelButton->setText(i18n("Cancel"));
+    KStandardGuiItem::assign(cancelButton, KStandardGuiItem::Cancel);
     hbox->addWidget(cancelButton);
 
     synchGrid->addWidget(hboxWidget, 6, 1);
@@ -186,7 +189,7 @@ void LoaderWidget::init()
 
 void LoaderWidget::setCurrentURL(const QUrl &url)
 {
-    searchedDirectory->setText(vfs::ensureTrailingSlash(url).toDisplayString(QUrl::PreferLocalFile));
+    searchedDirectory->setText(FileSystem::ensureTrailingSlash(url).toDisplayString(QUrl::PreferLocalFile));
 }
 
 void LoaderWidget::setValues(int fileNum, int dirNum, KIO::filesize_t total)
@@ -203,7 +206,7 @@ void LoaderWidget::slotCancelled()
 
 DiskUsage::DiskUsage(QString confGroup, QWidget *parent) : QStackedWidget(parent),
         currentDirectory(0), root(0), configGroup(confGroup), loading(false),
-        abortLoading(false), clearAfterAbort(false), deleting(false), searchVfs(0)
+        abortLoading(false), clearAfterAbort(false), deleting(false), searchFileSystem(0)
 {
     listView = new DUListView(this);
     lineView = new DULines(this);
@@ -259,19 +262,19 @@ void DiskUsage::load(const QUrl &baseDir)
     directoryStack.push("");
     parentStack.push(root);
 
-    if (searchVfs) {
-        delete searchVfs;
-        searchVfs = 0;
+    if (searchFileSystem) {
+        delete searchFileSystem;
+        searchFileSystem = 0;
     }
-    searchVfs = KrVfsHandler::instance().getVfs(baseDir);
-    if (searchVfs == 0) {
-        krOut << "diskusage could not get VFS for directory " << baseDir;
+    searchFileSystem = FileSystemProvider::instance().getFilesystem(baseDir);
+    if (searchFileSystem == 0) {
+        qWarning() << "could not get filesystem for directory=" << baseDir;
         loading = abortLoading = clearAfterAbort = false;
         emit loadFinished(false);
         return;
     }
 
-    currentVfile = 0;
+    currentFileItem = 0;
 
     if (!loading) {
         viewBeforeLoad = activeView;
@@ -290,12 +293,12 @@ void DiskUsage::load(const QUrl &baseDir)
 
 void DiskUsage::slotLoadDirectory()
 {
-    if ((currentVfile == 0 && directoryStack.isEmpty()) || loaderView->wasCancelled() || abortLoading) {
-        if (searchVfs)
-            delete searchVfs;
+    if ((currentFileItem == 0 && directoryStack.isEmpty()) || loaderView->wasCancelled() || abortLoading) {
+        if (searchFileSystem)
+            delete searchFileSystem;
 
-        searchVfs = 0;
-        currentVfile = 0;
+        searchFileSystem = 0;
+        currentFileItem = 0;
 
         setView(viewBeforeLoad);
 
@@ -311,7 +314,7 @@ void DiskUsage::slotLoadDirectory()
         loading = abortLoading = clearAfterAbort = false;
     } else if (loading) {
         for (int counter = 0; counter != MAX_FILENUM; counter ++) {
-            if (currentVfile == 0) {
+            if (currentFileItem == 0) {
                 if (directoryStack.isEmpty())
                     break;
 
@@ -337,36 +340,36 @@ void DiskUsage::slotLoadDirectory()
 
                 loaderView->setCurrentURL(url);
 
-                if (!searchVfs->refresh(url))
+                if (!searchFileSystem->scanDir(url))
                     break;
-                vfiles = searchVfs->vfiles();
+                fileItems = searchFileSystem->fileItems();
 
                 dirNum++;
 
-                currentVfile = vfiles.isEmpty() ? 0 : vfiles.takeFirst();
+                currentFileItem = fileItems.isEmpty() ? 0 : fileItems.takeFirst();
             } else {
                 fileNum++;
                 File *newItem = 0;
 
-                QString mime = currentVfile->vfile_getMime(); // fast == not using mimetype magic
+                QString mime = currentFileItem->getMime(); // fast == not using mimetype magic
 
-                if (currentVfile->vfile_isDir() && !currentVfile->vfile_isSymLink()) {
-                    newItem = new Directory(currentParent, currentVfile->vfile_getName(), dirToCheck, currentVfile->vfile_getSize(),
-                                            currentVfile->vfile_getMode(), currentVfile->vfile_getOwner(), currentVfile->vfile_getGroup(),
-                                            currentVfile->vfile_getPerm(), currentVfile->vfile_getTime_t(), currentVfile->vfile_isSymLink(),
+                if (currentFileItem->isDir() && !currentFileItem->isSymLink()) {
+                    newItem = new Directory(currentParent, currentFileItem->getName(), dirToCheck, currentFileItem->getSize(),
+                                            currentFileItem->getMode(), currentFileItem->getOwner(), currentFileItem->getGroup(),
+                                            currentFileItem->getPerm(), currentFileItem->getTime_t(), currentFileItem->isSymLink(),
                                             mime);
-                    directoryStack.push((dirToCheck.isEmpty() ? "" : dirToCheck + '/') + currentVfile->vfile_getName());
+                    directoryStack.push((dirToCheck.isEmpty() ? "" : dirToCheck + '/') + currentFileItem->getName());
                     parentStack.push(dynamic_cast<Directory *>(newItem));
                 } else {
-                    newItem = new File(currentParent, currentVfile->vfile_getName(), dirToCheck, currentVfile->vfile_getSize(),
-                                       currentVfile->vfile_getMode(), currentVfile->vfile_getOwner(), currentVfile->vfile_getGroup(),
-                                       currentVfile->vfile_getPerm(), currentVfile->vfile_getTime_t(), currentVfile->vfile_isSymLink(),
+                    newItem = new File(currentParent, currentFileItem->getName(), dirToCheck, currentFileItem->getSize(),
+                                       currentFileItem->getMode(), currentFileItem->getOwner(), currentFileItem->getGroup(),
+                                       currentFileItem->getPerm(), currentFileItem->getTime_t(), currentFileItem->isSymLink(),
                                        mime);
-                    currentSize += currentVfile->vfile_getSize();
+                    currentSize += currentFileItem->getSize();
                 }
                 currentParent->append(newItem);
 
-                currentVfile = vfiles.isEmpty() ? 0 : vfiles.takeFirst();
+                currentFileItem = fileItems.isEmpty() ? 0 : fileItems.takeFirst();
             }
         }
 

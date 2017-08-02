@@ -61,44 +61,43 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 #include <KWindowSystem/KStartupInfo>
 #include <KWindowSystem/KWindowSystem>
 
-#include "krusaderversion.h"
-#include "kicons.h"
-#include "krusaderview.h"
 #include "defaults.h"
-#include "krslots.h"
-#include "krservices.h"
-// This makes gcc-4.1 happy. Warning about possible problem with KrAction's dtor not called
-#include "krtrashhandler.h"
-#include "tabactions.h"
-#include "krglobal.h"
+#include "kicons.h"
 #include "kractions.h"
+#include "krglobal.h"
+#include "krservices.h"
+#include "krslots.h"
+#include "krtrashhandler.h"
+#include "krusaderversion.h"
+#include "krusaderview.h"
 #include "panelmanager.h"
-#include "Panel/krcolorcache.h"
-#include "Panel/viewactions.h"
-#include "Panel/listpanelactions.h"
-#include "Panel/krpanel.h"
-#include "Panel/krview.h"
-#include "Panel/krviewfactory.h"
-#include "UserAction/kraction.h"
-#include "UserAction/expander.h"
-#include "UserAction/useraction.h"
-#include "UserMenu/usermenu.h"
-#include "Dialogs/popularurls.h"
+#include "tabactions.h"
+
+#include "BookMan/krbookmarkhandler.h"
 #include "Dialogs/checksumdlg.h"
 #include "Dialogs/krpleasewait.h"
-#include "GUI/krremoteencodingmenu.h"
-#include "GUI/kfnkeys.h"
+#include "Dialogs/popularurls.h"
+#include "FileSystem/fileitem.h"
+#include "FileSystem/krpermhandler.h"
 #include "GUI/kcmdline.h"
-#include "GUI/terminaldock.h"
+#include "GUI/kfnkeys.h"
+#include "GUI/krremoteencodingmenu.h"
 #include "GUI/krusaderstatus.h"
-#include "VFS/vfile.h"
-#include "VFS/krpermhandler.h"
-#include "MountMan/kmountman.h"
-#include "Konfigurator/kgprotocols.h"
-#include "BookMan/krbookmarkhandler.h"
-#include "KViewer/krviewer.h"
+#include "GUI/terminaldock.h"
 #include "JobMan/jobman.h"
-
+#include "KViewer/krviewer.h"
+#include "Konfigurator/kgprotocols.h"
+#include "MountMan/kmountman.h"
+#include "Panel/PanelView/krview.h"
+#include "Panel/PanelView/krviewfactory.h"
+#include "Panel/krcolorcache.h"
+#include "Panel/krpanel.h"
+#include "Panel/listpanelactions.h"
+#include "Panel/viewactions.h"
+#include "UserAction/expander.h"
+// This makes gcc-4.1 happy. Warning about possible problem with KrAction's dtor not called
+#include "UserAction/kraction.h"
+#include "UserAction/useraction.h"
 
 #ifdef __KJSEMBED__
 #include "KrJS/krjs.h"
@@ -108,7 +107,6 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 // define the static members
 Krusader *Krusader::App = 0;
 QString   Krusader::AppName;
-UserMenu *Krusader::userMenu = 0;
 // KrBookmarkHandler *Krusader::bookman = 0;
 //QTextOStream *Krusader::_krOut = QTextOStream(::stdout);
 
@@ -120,7 +118,7 @@ QAction *Krusader::actShowJSConsole = 0;
 // construct the views, statusbar and menu bars and prepare Krusader to start
 Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
                 Qt::Window | Qt::WindowTitleHint | Qt::WindowContextHelpButtonHint),
-        _listPanelActions(0), isStarting(true), isExiting(false)
+        _listPanelActions(0), isStarting(true), isExiting(false), _quit(false)
 {
     // create the "krusader"
     App = this;
@@ -130,7 +128,7 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
 
     plzWait = new KRPleaseWaitHandler(this);
 
-    bool runKonfig = versionControl();
+    const bool runKonfig = versionControl();
 
     QString message;
     switch (krConfig->accessMode()) {
@@ -154,7 +152,7 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
 
     // create MountMan
     KrGlobal::mountMan = new KMountMan(this);
-    connect(KrGlobal::mountMan, SIGNAL(refreshPanel(const QUrl &)), SLOTS, SLOT(refresh(const QUrl &)));
+    connect(KrGlobal::mountMan, SIGNAL(refreshPanel(QUrl)), SLOTS, SLOT(refresh(QUrl)));
 
     // create bookman
     krBookMan = new KrBookmarkHandler(this);
@@ -176,15 +174,12 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
     // init the protocol handler
     KgProtocols::init();
 
-    // init the checksum tools
-    initChecksumModule();
+    const KConfigGroup lookFeelGroup(krConfig, "Look&Feel");
+    FileItem::loadUserDefinedFolderIcons(lookFeelGroup.readEntry("Load User Defined Folder Icons",
+                                                                 _UserDefinedFolderIcons));
 
-    KConfigGroup gl(krConfig, "Look&Feel");
-    vfile::vfile_loadUserDefinedFolderIcons(gl.readEntry("Load User Defined Folder Icons",
-                                                         _UserDefinedFolderIcons));
-
-    KConfigGroup gs(krConfig, "Startup");
-    QString     startProfile = gs.readEntry("Starter Profile Name", QString());
+    const KConfigGroup startupGroup(krConfig, "Startup");
+    QString startProfile = startupGroup.readEntry("Starter Profile Name", QString());
 
     QList<QUrl> leftTabs;
     QList<QUrl> rightTabs;
@@ -206,11 +201,7 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
         rightTabs.clear();
     }
     // starting the panels
-    MAIN_VIEW->start(gs, startProfile.isEmpty(), leftTabs, rightTabs);
-
-    // create the user menu
-    userMenu = new UserMenu(this);
-    userMenu->hide();
+    MAIN_VIEW->start(startupGroup, startProfile.isEmpty(), leftTabs, rightTabs);
 
     // create a status bar
     KrusaderStatus *status = new KrusaderStatus(this);
@@ -218,19 +209,9 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
     status->setWhatsThis(i18n("Statusbar will show basic information "
                               "about file below mouse pointer."));
 
-    // create tray icon (even if not shown)
-    sysTray = new QSystemTrayIcon(this);
-    sysTray->setIcon(krLoader->loadIcon(privIcon(), KIconLoader::Panel, 22));
-    QMenu *trayMenu = new QMenu(this);
-    trayMenu->addSection(QGuiApplication::applicationDisplayName()); // show "title"
-    QAction *restoreAction = new QAction(i18n("Restore"), this);
-    connect(restoreAction, SIGNAL(triggered()), SLOT(showFromTray()));
-    trayMenu->addAction(restoreAction);
-    trayMenu->addSeparator();
-    trayMenu->addAction(actionCollection()->action(KStandardAction::name(KStandardAction::Quit)));
-    sysTray->setContextMenu(trayMenu);
-    // tray is only visible if main window is hidden, so action is always "show"
-    connect(sysTray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(showFromTray()));
+    // create tray icon (if needed)
+    const bool startToTray = startupGroup.readEntry("Start To Tray", _StartToTray);
+    setTray(startToTray);
 
     setCentralWidget(MAIN_VIEW);
 
@@ -264,13 +245,12 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
         const KConfigGroup cfgActionsBar(krConfig, "Actions Toolbar");
         toolBar("actionsToolBar")->applySettings(cfgActionsBar);
 
-        const KConfigGroup cfgStartup(krConfig->group("Startup"));
-        toolBar()->setVisible(cfgStartup.readEntry("Show tool bar", _ShowToolBar));
-        toolBar("jobToolBar")->setVisible(cfgStartup.readEntry("Show job tool bar", true));
-        toolBar("actionsToolBar")->setVisible(cfgStartup.readEntry("Show actions tool bar", _ShowActionsToolBar));
-        statusBar()->setVisible(cfgStartup.readEntry("Show status bar", _ShowStatusBar));
+        // restore toolbars position and visibility
+        restoreState(startupGroup.readEntry("State", QByteArray()));
 
-        MAIN_VIEW->updateGUI(cfgStartup);
+        statusBar()->setVisible(startupGroup.readEntry("Show status bar", _ShowStatusBar));
+
+        MAIN_VIEW->updateGUI(startupGroup);
 
         // popular urls
         _popularUrls->load();
@@ -291,10 +271,8 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
         resize(cfg.readEntry("Start Size", _StartSize));
     }
 
-    // view initialized; show window or tray
-    if (gs.readEntry("Start To Tray", _StartToTray)) {
-        sysTray->show();
-    } else {
+    // view initialized; show window or only tray
+    if (!startToTray) {
         show();
     }
 
@@ -322,7 +300,7 @@ Krusader::Krusader(const QCommandLineParser &parser) : KParts::MainWindow(0,
 Krusader::~Krusader()
 {
     KrTrashHandler::stopWatcher();
-    if (!isExiting)    // save the settings if it was not saved (SIGTERM)
+    if (!isExiting) // save the settings if it was not saved (SIGTERM received)
         saveSettings();
 
     delete MAIN_VIEW;
@@ -330,91 +308,55 @@ Krusader::~Krusader()
     App = 0;
 }
 
+void Krusader::setTray(bool forceCreation)
+{
+    const bool trayIsNeeded = forceCreation || KConfigGroup(krConfig, "Look&Feel")
+                                               .readEntry("Minimize To Tray", _ShowTrayIcon);
+    if (!sysTray && trayIsNeeded) {
+        sysTray = new KStatusNotifierItem(this);
+        sysTray->setIconByName(privIcon());
+        // we have our own "quit" method, re-connect
+        QAction *quitAction = sysTray->action(QStringLiteral("quit"));
+        if (quitAction) {
+            disconnect(quitAction, &QAction::triggered, nullptr, nullptr);
+            connect(quitAction, &QAction::triggered, this, &Krusader::quit);
+        }
+    } else if (sysTray && !trayIsNeeded) {
+        // user does not want tray anymore :(
+        sysTray->deleteLater();
+    }
+}
+
 bool Krusader::versionControl()
 {
-#define FIRST_RUN "First Time"
-    bool retval = false;
     // create config file
     krConfig = KSharedConfig::openConfig().data();
     KConfigGroup nogroup(krConfig, QString());
-
-    bool firstRun = nogroup.readEntry(FIRST_RUN, true);
-
-#if 0
-    QString oldVerText = nogroup.readEntry("Version", "10.0");
-    oldVerText.truncate(oldVerText.lastIndexOf("."));     // remove the third dot
-    float oldVer = oldVerText.toFloat();
-    // older icompatible version
-    if (oldVer <= 0.9) {
-        KMessageBox::information(krApp, i18n("A configuration of 1.51 or older was detected. Krusader has to reset your configuration to default values.\nNote: your bookmarks and keybindings will remain intact.\nKrusader will now run Konfigurator."));
-        /*if ( !QDir::home().remove( ".kde/share/config/krusaderrc" ) ) {
-           KMessageBox::error( krApp, i18n( "Unable to remove your krusaderrc file. Please remove it manually and rerun Krusader." ) );
-           exit( 1 );
-        }*/
-        retval = true;
-        krConfig->reparseConfiguration();
-    }
-#endif
+    const bool firstRun = nogroup.readEntry("First Time", true);
+    KrGlobal::sCurrentConfigVersion = nogroup.readEntry("Config Version", -1);
 
     // first installation of krusader
     if (firstRun) {
-        KMessageBox::information(krApp, i18n("<qt><b>Welcome to Krusader.</b><p>As this is your first run, your machine will now be checked for external applications. Then the Konfigurator will be launched where you can customize Krusader to your needs.</p></qt>"));
-        retval = true;
+        KMessageBox::information(
+            krApp, i18n("<qt><b>Welcome to Krusader.</b><p>As this is your first run, your machine "
+                        "will now be checked for external applications. Then the Konfigurator will "
+                        "be launched where you can customize Krusader to your needs.</p></qt>"));
     }
     nogroup.writeEntry("Version", VERSION);
-    nogroup.writeEntry(FIRST_RUN, false);
+    nogroup.writeEntry("First Time", false);
     krConfig->sync();
 
-    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/krusader/"));
+    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
+                  QStringLiteral("/krusader/"));
 
-    return retval;
+    return firstRun;
 }
 
-void Krusader::statusBarUpdate(QString& mess)
+void Krusader::statusBarUpdate(const QString& mess)
 {
     // change the message on the statusbar for 5 seconds
     if (statusBar()->isVisible())
         statusBar()->showMessage(mess, 5000);
-}
-
-void Krusader::showFromTray() {
-    setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
-    show();
-    sysTray->hide();
-}
-
-void Krusader::changeEvent(QEvent *event) {
-    QMainWindow::changeEvent(event);
-    if (isExiting)
-        return;
-
-    // toggle tray when minimizing (if enabled)
-    if(event->type() == QEvent::WindowStateChange) {
-        if(isMinimized()) {
-            KConfigGroup group(krConfig, "Look&Feel");
-            if (group.readEntry("Minimize To Tray", _MinimizeToTray)) {
-                // TODO tray created again to prevent bug in kf5,
-                // remove this if bug 365105 is resolved
-                sysTray->deleteLater();
-                sysTray = new QSystemTrayIcon(this);
-                sysTray->setIcon(krLoader->loadIcon(privIcon(), KIconLoader::Panel, 22));
-                QMenu *trayMenu = new QMenu(this);
-                trayMenu->addSection(QGuiApplication::applicationDisplayName()); // show "title"
-                QAction *restoreAction = new QAction(i18n("Restore"), this);
-                connect(restoreAction, SIGNAL(triggered()), SLOT(showFromTray()));
-                trayMenu->addAction(restoreAction);
-                trayMenu->addSeparator();
-                trayMenu->addAction(actionCollection()->action(KStandardAction::name(KStandardAction::Quit)));
-                sysTray->setContextMenu(trayMenu);
-                connect(sysTray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(showFromTray()));
-
-                sysTray->show();
-                hide();
-            }
-        } else if(isVisible()) {
-            sysTray->hide();
-        }
-    }
 }
 
 bool Krusader::event(QEvent *e) {
@@ -453,8 +395,8 @@ void Krusader::savePosition() {
     // We are not using this and saving everything manually because
     // - it does not save window position
     // - window size save/restore does sometimes not work (multi-monitor setup)
-    // - saving the statubar visibility should be independent from window position and restoring it
-    // it does not work properly.
+    // - saving the statusbar visibility should be independent from window position and restoring it
+    //   does not work properly.
     //KConfigGroup cfg = KConfigGroup(&cfg, "MainWindowSettings");
     //saveMainWindowSettings(cfg);
     //statusBar()->setVisible(cfg.readEntry("StatusBar", "Enabled") != "Disabled");
@@ -463,6 +405,14 @@ void Krusader::savePosition() {
 }
 
 void Krusader::saveSettings() {
+    // workaround: revert terminal fullscreen mode before saving widget and toolbar visibility
+    if (MAIN_VIEW->isTerminalEmulatorFullscreen()) {
+        MAIN_VIEW->setTerminalEmulator(false, true);
+    }
+
+    KConfigGroup noGroup(krConfig, QString());
+    noGroup.writeEntry("Config Version", KrGlobal::sConfigVersion);
+
     // save toolbar settings
     KConfigGroup cfg(krConfig, "Main Toolbar");
     toolBar()->saveSettings(cfg);
@@ -474,9 +424,8 @@ void Krusader::saveSettings() {
     toolBar("actionsToolBar")->saveSettings(cfg);
 
     cfg = krConfig->group("Startup");
-    cfg.writeEntry("Show tool bar", !toolBar()->isHidden());
-    cfg.writeEntry("Show job tool bar", !toolBar("jobToolBar")->isHidden());
-    cfg.writeEntry("Show actions tool bar", !toolBar("actionsToolBar")->isHidden());
+    // save toolbar visibility and position
+    cfg.writeEntry("State", saveState());
     cfg.writeEntry("Show status bar", statusBar()->isVisible());
 
     // save panel and window settings
@@ -494,6 +443,29 @@ void Krusader::saveSettings() {
     _popularUrls->save();
 
     krConfig->sync();
+}
+
+void Krusader::closeEvent(QCloseEvent *event)
+{
+    if (!sysTray || _quit) {
+        _quit = false; // in case quit will be aborted
+        KParts::MainWindow::closeEvent(event); // (may) quit, continues with queryClose()...
+    } else {
+        // close window to tray
+        event->ignore();
+        hide();
+    }
+}
+
+void Krusader::showEvent(QShowEvent *event)
+{
+    const KConfigGroup lookFeelGroup(krConfig, "Look&Feel");
+    if (sysTray && !lookFeelGroup.readEntry("Minimize To Tray", _ShowTrayIcon)) {
+        // restoring from "start to tray", tray icon is not needed anymore
+        sysTray->deleteLater();
+    }
+
+    KParts::MainWindow::showEvent(event);
 }
 
 bool Krusader::queryClose() {
@@ -557,7 +529,6 @@ bool Krusader::queryClose() {
 
 void Krusader::acceptClose() {
     saveSettings();
-    krConfig->sync();
 
     emit shutdown();
 
@@ -568,9 +539,7 @@ void Krusader::acceptClose() {
     QDBusConnection dbus = QDBusConnection::sessionBus();
     dbus.unregisterObject("/Instances/" + Krusader::AppName);
 
-    isExiting = true; // this will also kill the pending jobs
-
-    return;
+    isExiting = true;
 }
 
 // the please wait dialog functions
@@ -597,65 +566,17 @@ void Krusader::updateUserActions() {
     }
 }
 
-QString Krusader::getTempDir() {
-    // try to make krusader temp dir
-    KConfigGroup group(krConfig, "General");
-    QString tmpDir = group.readEntry("Temp Directory", _TempDirectory);
-
-    if (! QDir(tmpDir).exists()) {
-        for (int i = 1 ; i != -1 ; i = tmpDir.indexOf('/', i + 1))
-            QDir().mkdir(tmpDir.left(i));
-        QDir().mkdir(tmpDir);
-        chmod(tmpDir.toLocal8Bit(), 0777);
-    }
-
-    // add a secure sub dir under the user UID
-    QString uid;
-    uid.sprintf("%d", getuid());
-    QDir(tmpDir).mkdir(uid);
-    tmpDir = tmpDir + '/' + uid + '/';
-    chmod(tmpDir.toLocal8Bit(), S_IRUSR | S_IWUSR | S_IXUSR);
-    // add a random sub dir to use
-    while (QDir().exists(tmpDir))
-        tmpDir = tmpDir + KRandom::randomString(8);
-    QDir().mkdir(tmpDir);
-
-    if (!QDir(tmpDir).isReadable()) {
-        KMessageBox::error(krApp, i18n("Could not create a temporary folder. Handling of Archives will not be possible until this is fixed."));
-        return QString();
-    }
-    return tmpDir;
-}
-
-QString Krusader::getTempFile() {
-    // try to make krusader temp dir
-    KConfigGroup group(krConfig, "General");
-    QString tmpDir = group.readEntry("Temp Directory", _TempDirectory);
-
-    if (! QDir(tmpDir).exists()) {
-        for (int i = 1 ; i != -1 ; i = tmpDir.indexOf('/', i + 1))
-            QDir().mkdir(tmpDir.left(i));
-        QDir().mkdir(tmpDir);
-        chmod(tmpDir.toLocal8Bit(), 0777);
-    }
-
-    // add a secure sub dir under the user UID
-    QString uid;
-    uid.sprintf("%d", getuid());
-    QDir(tmpDir).mkdir(uid);
-    tmpDir = tmpDir + '/' + uid + '/';
-    chmod(tmpDir.toLocal8Bit(), S_IRUSR | S_IWUSR | S_IXUSR);
-
-    while (QDir().exists(tmpDir))
-        tmpDir = tmpDir + KRandom::randomString(8);
-    return tmpDir;
-}
-
 const char* Krusader::privIcon() {
     if (geteuid())
         return "krusader_user";
     else
         return "krusader_root";
+}
+
+void Krusader::quit()
+{
+    _quit = true; // remember that we want to quit and not close to tray
+    close(); // continues with closeEvent()...
 }
 
 void Krusader::moveToTop() {

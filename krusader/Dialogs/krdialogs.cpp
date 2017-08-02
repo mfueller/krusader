@@ -20,6 +20,7 @@
 #include "krdialogs.h"
 
 // QtCore
+#include <QDebug>
 #include <QDir>
 // QtGui
 #include <QFontMetrics>
@@ -40,7 +41,7 @@
 #include <KWidgetsAddons/KGuiItem>
 
 #include "../krglobal.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystem.h"
 #include "../defaults.h"
 #include "../JobMan/jobman.h"
 
@@ -57,7 +58,7 @@ QUrl KChooseDir::getDir(const QString &text, const QUrl& url, const QUrl& cwd)
 
 QUrl KChooseDir::get(const QString &text, const QUrl &url, const QUrl &cwd, KFile::Modes mode)
 {
-    QScopedPointer<KUrlRequesterDialog> dlg(new KUrlRequesterDialog(vfs::ensureTrailingSlash(url), text, krMainWindow));
+    QScopedPointer<KUrlRequesterDialog> dlg(new KUrlRequesterDialog(FileSystem::ensureTrailingSlash(url), text, krMainWindow));
     dlg->urlRequester()->setStartDir(cwd);
     dlg->urlRequester()->setMode(mode);
     dlg->exec();
@@ -71,14 +72,9 @@ QUrl KChooseDir::get(const QString &text, const QUrl &url, const QUrl &cwd, KFil
 }
 
 KChooseDir::ChooseResult KChooseDir::getCopyDir(const QString &text, const QUrl &url,
-                                                const QUrl &cwd, bool preserveAttrs,
-                                                const QUrl &baseURL)
+                                                const QUrl &cwd)
 {
-    QScopedPointer<KUrlRequesterDlgForCopy> dlg(new KUrlRequesterDlgForCopy(
-        vfs::ensureTrailingSlash(url), text, preserveAttrs, krMainWindow, true, baseURL));
-
-    if (!preserveAttrs)
-        dlg->hidePreserveAttrs();
+    QScopedPointer<KUrlRequesterDlgForCopy> dlg(new KUrlRequesterDlgForCopy(url, text, krMainWindow, true));
 
     dlg->urlRequester()->setStartDir(cwd);
     dlg->urlRequester()->setMode(KFile::Directory);
@@ -92,17 +88,13 @@ KChooseDir::ChooseResult KChooseDir::getCopyDir(const QString &text, const QUrl 
 
     ChooseResult result;
     result.url = u;
-    result.reverseQueueMode = dlg->isReverseQueueMode();
-    result.startPaused = dlg->isStartPaused();
-    result.preserveAttrs = dlg->preserveAttrs();
-    result.baseURL = dlg->copyDirStructure() ? dlg->baseURL() : QUrl();
+    result.enqueue = dlg->isQueued();
     return result;
 }
 
 KUrlRequesterDlgForCopy::KUrlRequesterDlgForCopy(const QUrl &urlName, const QString &_text,
-                                                 bool /*presAttrs*/, QWidget *parent, bool modal,
-                                                 QUrl baseURL)
-    : QDialog(parent), baseUrlCombo(0), copyDirStructureCB(0)
+                                                 QWidget *parent, bool modal)
+    : QDialog(parent)
 {
     setWindowModality(modal ? Qt::WindowModal : Qt::NonModal);
 
@@ -114,53 +106,23 @@ KUrlRequesterDlgForCopy::KUrlRequesterDlgForCopy(const QUrl &urlName, const QStr
     urlRequester_ = new KUrlRequester(urlName, this);
     urlRequester_->setMinimumWidth(urlRequester_->sizeHint().width() * 3);
     mainLayout->addWidget(urlRequester_);
-//     preserveAttrsCB = new QCheckBox(i18n("Preserve attributes (only for local targets)"), widget);
-//     preserveAttrsCB->setChecked(presAttrs);
-//     topLayout->addWidget(preserveAttrsCB);
-    if (!baseURL.isEmpty()) {
-        QFrame *line = new QFrame(this);
-        line->setFrameStyle(QFrame::HLine | QFrame::Sunken);
-        mainLayout->addWidget(line);
-        copyDirStructureCB = new QCheckBox(i18n("Keep virtual folder structure"), this);
-        connect(copyDirStructureCB, SIGNAL(toggled(bool)), this, SLOT(slotDirStructCBChanged()));
-        copyDirStructureCB->setChecked(false);
-        mainLayout->addWidget(copyDirStructureCB);
-        QWidget *hboxWidget = new QWidget(this);
-        QHBoxLayout * hbox = new QHBoxLayout(hboxWidget);
-        QLabel * lbl = new QLabel(i18n("Base URL:"),  hboxWidget);
-        hbox->addWidget(lbl);
-
-        baseUrlCombo = new QComboBox(hboxWidget);
-        baseUrlCombo->setMinimumWidth(baseUrlCombo->sizeHint().width() * 3);
-        baseUrlCombo->setEnabled(copyDirStructureCB->isChecked());
-        hbox->addWidget(baseUrlCombo);
-
-        QUrl temp = baseURL, tempOld;
-        do {
-            QString baseURLText = temp.toDisplayString(QUrl::PreferLocalFile);
-            baseUrlCombo->addItem(baseURLText);
-            tempOld = temp;
-            temp = KIO::upUrl(temp);
-        } while (!tempOld.matches(temp, QUrl::StripTrailingSlash));
-        baseUrlCombo->setCurrentIndex(0);
-
-        mainLayout->addWidget(hboxWidget);
-    }
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
     mainLayout->addWidget(buttonBox);
     okButton = buttonBox->button(QDialogButtonBox::Ok);
     okButton->setDefault(true);
     okButton->setShortcut(Qt::CTRL | Qt::Key_Return);
-    pauseBox = new QCheckBox(i18n("Start &Paused"), this);
-    buttonBox->addButton(pauseBox, QDialogButtonBox::ActionRole);
-    QPushButton *reverseQueueModeButton = new QPushButton(krJobMan->isQueueModeEnabled() ? i18n("F2 Run Immediately") : i18n("F2 Queue"), this);
-    reverseQueueModeButton->setToolTip(krJobMan->isQueueModeEnabled() ? i18n("Immediately start job even if there are running jobs in queue.") : i18n("Enqueue the job if queue is not empty. Otherwise start the job immediately."));
-    buttonBox->addButton(reverseQueueModeButton, QDialogButtonBox::ActionRole);
+
+    QPushButton *queueButton = new QPushButton(
+        krJobMan->isQueueModeEnabled() ? i18n("F2 Delay Job Start") : i18n("F2 Queue"), this);
+    queueButton->setToolTip(krJobMan->isQueueModeEnabled() ?
+            i18n("Do not start the job now.") :
+            i18n("Enqueue the job if another job is running. Otherwise start immediately."));
+    buttonBox->addButton(queueButton, QDialogButtonBox::ActionRole);
 
     connect(buttonBox, SIGNAL(accepted()), SLOT(accept()));
     connect(buttonBox, SIGNAL(rejected()), SLOT(reject()));
-    connect(reverseQueueModeButton, SIGNAL(clicked()), SLOT(slotReverseQueueMode()));
+    connect(queueButton, SIGNAL(clicked()), SLOT(slotQueueButtonClicked()));
     connect(urlRequester_, SIGNAL(textChanged(QString)), SLOT(slotTextChanged(QString)));
 
     urlRequester_->setFocus();
@@ -172,31 +134,17 @@ void KUrlRequesterDlgForCopy::keyPressEvent(QKeyEvent *e)
 {
     switch (e->key()) {
     case Qt::Key_F2:
-        slotReverseQueueMode();
+        slotQueueButtonClicked();
         return;
     default:
         QDialog::keyPressEvent(e);
     }
 }
 
-void KUrlRequesterDlgForCopy::slotReverseQueueMode()
+void KUrlRequesterDlgForCopy::slotQueueButtonClicked()
 {
-    reverseQueueMode = true;
+    queueStart = true;
     accept();
-}
-
-
-bool KUrlRequesterDlgForCopy::preserveAttrs()
-{
-//     return preserveAttrsCB->isChecked();
-    return true;
-}
-
-bool KUrlRequesterDlgForCopy::copyDirStructure()
-{
-    if (copyDirStructureCB == 0)
-        return false;
-    return copyDirStructureCB->isChecked();
 }
 
 void KUrlRequesterDlgForCopy::slotTextChanged(const QString & text)
@@ -205,15 +153,11 @@ void KUrlRequesterDlgForCopy::slotTextChanged(const QString & text)
     okButton->setEnabled(state);
 }
 
-void KUrlRequesterDlgForCopy::slotDirStructCBChanged()
-{
-    baseUrlCombo->setEnabled(copyDirStructureCB->isChecked());
-}
-
 QUrl KUrlRequesterDlgForCopy::selectedURL() const
 {
     if (result() == QDialog::Accepted) {
         QUrl url = urlRequester_->url();
+        qDebug() << "requester returned URL=" << url.toDisplayString();
         if (url.isValid())
             KRecentDocument::add(url);
         return url;
@@ -224,13 +168,6 @@ QUrl KUrlRequesterDlgForCopy::selectedURL() const
 KUrlRequester * KUrlRequesterDlgForCopy::urlRequester()
 {
     return urlRequester_;
-}
-
-QUrl KUrlRequesterDlgForCopy::baseURL() const
-{
-    if (baseUrlCombo == 0)
-        return QUrl();
-    return QUrl::fromUserInput(baseUrlCombo->currentText(), QString(), QUrl::AssumeLocalFile);
 }
 
 KRGetDate::KRGetDate(QDate date, QWidget *parent) : QDialog(parent, Qt::MSWindowsFixedSizeDialogHint)

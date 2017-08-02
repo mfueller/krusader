@@ -37,6 +37,10 @@
 #include <KIO/Job>
 #include <KIOCore/KFileItem>
 
+#include <kio_version.h>
+
+#include <errno.h>
+
 #define MAX_IPC_SIZE           (1024*32)
 #define TRIES_WITH_PASSWORDS   3
 
@@ -453,7 +457,7 @@ void kio_krarcProtocol::get(const QUrl &url, int tries)
 
         QString escapedFilename = file;
         if(arcType == "zip") // left bracket needs to be escaped
-            escapedFilename.replace("[", "[[]");
+            escapedFilename.replace('[', "[[]");
         proc << getCmd << getPath(arcFile->url());
         if (arcType != "gzip" && arcType != "bzip2" && arcType != "lzma" && arcType != "xz") proc << localeEncodedString(escapedFilename);
         connect(&proc, SIGNAL(newOutputData(KProcess *, QByteArray &)),
@@ -724,7 +728,7 @@ void kio_krarcProtocol::copy(const QUrl &url, const QUrl &dest, int, KIO::JobFla
             QString escapedFilename = file;
             if(arcType == "zip") {
                 // left bracket needs to be escaped
-                escapedFilename.replace("[", "[[]");
+                escapedFilename.replace('[', "[[]");
             }
 
             KrLinecountingProcess proc;
@@ -779,7 +783,7 @@ void kio_krarcProtocol::rename(const QUrl& src, const QUrl& dest, KIO::JobFlags 
     }
 
     KrLinecountingProcess proc;
-    proc << renCmd << arcPath << src.path().replace(arcPath + "/", "") << dest.path().replace(arcPath + "/", "");
+    proc << renCmd << arcPath << src.path().replace(arcPath + '/', "") << dest.path().replace(arcPath + '/', "");
     proc.start();
     proc.waitForFinished();
 
@@ -1792,9 +1796,18 @@ QString kio_krarcProtocol::getPassword()
 
     authInfo.password.clear();
 
+#if KIO_VERSION_MINOR >= 24
+    int errCode = openPasswordDialogV2(authInfo, i18n("Accessing the file requires a password."));
+    if (!errCode && !authInfo.password.isNull()) {
+#else
     if (openPasswordDialog(authInfo, i18n("Accessing the file requires a password.")) && !authInfo.password.isNull()) {
+#endif
         KRDEBUG(authInfo.password);
         return (password = authInfo.password);
+#if KIO_VERSION_MINOR >= 24
+    } else {
+        error(errCode, QString());
+#endif
     }
 
     KRDEBUG(password);

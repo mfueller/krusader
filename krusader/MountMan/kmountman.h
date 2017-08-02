@@ -77,9 +77,10 @@ public:
         return (QAction *) _action;
     }
 
-    KMountMan(QWidget *parent);
+    explicit KMountMan(QWidget *parent);
     ~KMountMan();
 
+    // NOTE: this function needs some time (~50msec)
     QString findUdiForPath(QString path, const Solid::DeviceInterface::Type &expType = Solid::DeviceInterface::Unknown);
     QString pathForUdi(QString udi);
 

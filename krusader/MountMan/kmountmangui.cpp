@@ -34,7 +34,7 @@ A
 #include "../Dialogs/krspecialwidgets.h"
 #include "../kicons.h"
 #include "../defaults.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystem.h"
 
 // QtCore
 #include <QCryptographicHash>
@@ -104,12 +104,12 @@ KMountManGUI::KMountManGUI(KMountMan *mntMan) : QDialog(mntMan->parentWindow),
     connect(buttonBox, SIGNAL(rejected()), SLOT(reject()));
     connect(ejectButton, SIGNAL(clicked()), SLOT(slotEject()));
     connect(mountButton, SIGNAL(clicked()), SLOT(slotToggleMount()));
-    connect(mountList, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)), this,
-            SLOT(doubleClicked(QTreeWidgetItem *)));
-    connect(mountList, SIGNAL(itemRightClicked(QTreeWidgetItem *, const QPoint &, int)),
-            this, SLOT(clicked(QTreeWidgetItem*, const QPoint &)));
-    connect(mountList, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
-            SLOT(changeActive(QTreeWidgetItem *)));
+    connect(mountList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this,
+            SLOT(doubleClicked(QTreeWidgetItem*)));
+    connect(mountList, SIGNAL(itemRightClicked(QTreeWidgetItem*,QPoint,int)),
+            this, SLOT(clicked(QTreeWidgetItem*,QPoint)));
+    connect(mountList, SIGNAL(itemClicked(QTreeWidgetItem*,int)), this,
+            SLOT(changeActive(QTreeWidgetItem*)));
     connect(mountList, SIGNAL(itemSelectionChanged()), this,
             SLOT(changeActive()));
 
@@ -231,7 +231,7 @@ void KMountManGUI::getSpaceData()
     if (mounted.size() == 0) {   // nothing is mounted
         addNonMounted();
         updateList(); // let's continue
-        return ;
+        return;
     }
 
     for (KMountPoint::List::iterator it = mounted.begin(); it != mounted.end(); ++it) {
@@ -416,7 +416,7 @@ void KMountManGUI::clicked(QTreeWidgetItem *item, const QPoint & pos)
 #define FORMAT_ID      93
 #define EJECT_ID       94
     //////////////////////////////////////////////////////////
-    if (!item) return ;
+    if (!item) return;
 
     fsData *system = getFsData(item);
     // create the menu

@@ -53,46 +53,46 @@
 #include <QWidget>
 #include <QLabel>
 #include <QLayout>
+#include <QSplitter>
 #include <QToolButton>
 #include <QGridLayout>
 
-#include <KIOCore/KFileItem>
 #include <KCompletion/KLineEdit>
+#include <KConfigCore/KConfigGroup>
+#include <KIO/Job>
+#include <KIOCore/KFileItem>
 #include <KIOFileWidgets/KUrlNavigator>
 
 #include "krpanel.h"
-#include "krviewitem.h"
-#include "../Dialogs/krsqueezedtextlabel.h"
 
 #define PROP_SYNC_BUTTON_ON               1
 #define PROP_LOCKED                       2
 
-class KrView;
-class KrSearchBar;
 class DirHistoryButton;
+class KrBookmarkButton;
+class KrErrorDisplay;
+class KrSqueezedTextLabel;
+class KrSearchBar;
+class KrView;
+class KrViewItem;
+class ListPanelActions;
+class ListPanelFunc;
 class MediaButton;
 class PanelPopup;
-class SyncBrowseButton;
-class KrBookmarkButton;
-class ListPanelFunc;
-class QSplitter;
-class KrErrorDisplay;
-class ListPanelActions;
+class SizeCalculator;
 
 class ListPanel : public QWidget, public KrPanel
 {
     friend class ListPanelFunc;
     Q_OBJECT
 public:
-#define ITEM2VFILE(PANEL_PTR, KRVIEWITEM)  PANEL_PTR->func->files()->getVfile(KRVIEWITEM->name())
-#define NAME2VFILE(PANEL_PTR, STRING_NAME) PANEL_PTR->func->files()->getVfile(STRING_NAME)
     // constructor create the panel, but DOESN'T fill it with data, use start()
     ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGroup cfg = KConfigGroup());
     ~ListPanel();
 
     virtual void otherPanelChanged() Q_DECL_OVERRIDE;
 
-    void start(QUrl url = QUrl(), bool immediate = false);
+    void start(const QUrl &url = QUrl());
 
     void reparent(QWidget *parent, AbstractPanelManager *manager);
 
@@ -110,12 +110,9 @@ public:
     ListPanelActions *actions() {
         return _actions;
     }
-    /// The last shown local path.
-    QString realPath() const;
+    QString lastLocalPath() const;
     QString getCurrentName();
-    void getSelectedNames(QStringList* fileNames) {
-        view->getSelectedItems(fileNames);
-    }
+    QStringList getSelectedNames();
     void setButtons();
     void setJumpBack(QUrl url);
 
@@ -133,13 +130,14 @@ public slots:
     void compareDirs(bool otherPanelToo = true);
     void slotFocusOnMe(bool focus = true);
     void slotUpdateTotals();
-    // react to file changes in vfs (path change or refresh)
+    // react to file changes in filesystem (path change or refresh)
     void slotStartUpdate(bool directoryChange);
     void togglePanelPopup();
-    void panelActive(); // called when the panel becomes active
-    void panelInactive(); // called when panel becomes inactive
+    void panelVisible(); // called when the panel becomes active
+    void panelHidden(); // called when panel becomes inactive
     void refreshColors();
-    void inlineRefreshCancel();
+    void cancelProgress(); // cancel filesystem refresh and/or preview (if running)
+    void setNavigatorUrl(const QUrl &url);
 
     void openMedia();
     void openHistory();
@@ -174,7 +172,7 @@ protected:
     static bool isNavigatorEditModeSet(); // return the navigator edit mode setting
 
 protected slots:
-    void updatePopupPanel(KrViewItem *item);
+    void slotCurrentChanged(KrViewItem *item);
     void handleDrop(QDropEvent *event, bool onView = false); // handle drops on frame or view
     void handleDrop(const QUrl &destination, QDropEvent *event); // handle drops with destination
     void startDragging(QStringList, QPixmap);
@@ -182,16 +180,18 @@ protected slots:
     void slotPreviewJobPercent(KJob *job, unsigned long percent);
     void slotPreviewJobResult(KJob *job);
     // those handle the in-panel refresh notifications
-    void slotJobStarted(KIO::Job* job);
+    void slotRefreshJobStarted(KIO::Job* job);
     void inlineRefreshInfoMessage(KJob* job, const QString &msg);
     void inlineRefreshListResult(KJob* job);
     void inlineRefreshPercent(KJob*, unsigned long);
-    void slotVfsError(QString msg);
+    void slotFilesystemError(QString msg);
     void newTab(KrViewItem *item);
-    void newTab(const QUrl &url, bool nextToThis = false) {
-        _manager->newTab(url, nextToThis ? this : 0);
-    }
+    void newTab(const QUrl &url, bool nextToThis = false);
+    void slotNavigatorUrlChanged(const QUrl &url);
     void resetNavigatorMode(); // set navigator mode after focus was lost
+    // update filesystem meta info, disk-free and mount status
+    void updateFilesystemStats(const QString &metaInfo,  const QString &fsType,
+                               KIO::filesize_t total, KIO::filesize_t free);
 
 signals:
     void signalStatus(QString msg); // emmited when we need to update the status bar
@@ -199,12 +199,10 @@ signals:
     void activate(); // emitted when the user changes panels
     void finishedDragging(); // NOTE: currently not used
     void refreshColors(bool active);
-    // emitted when we have to update the path label width
-    void refreshPathLabel();
 
 protected:
     int panelType;
-    QUrl _realPath; // named with _ to keep realPath() compatibility
+    QString _lastLocalPath;
     QUrl _jumpBackURL;
     int colorMask;
     bool compareMode;
@@ -229,20 +227,23 @@ protected:
     KrBookmarkButton *bookmarksButton;
     KrSqueezedTextLabel *status, *totals, *freeSpace;
 
+    QProgressBar *quickSizeCalcProgress;
+    QToolButton *cancelQuickSizeCalcButton;
     QProgressBar *previewProgress;
     DirHistoryButton* historyButton;
     MediaButton *mediaButton;
-    SyncBrowseButton *syncBrowseButton;
-    QToolButton *inlineRefreshCancelButton;
-    KrErrorDisplay *vfsError;
+    QToolButton *syncBrowseButton;
+    QToolButton *cancelProgressButton; // for thumbnail previews and filesystem refresh
+    KrErrorDisplay *fileSystemError;
 
 private:
-    void updateFilesystemStats(const QUrl &url); // update disk-free and mount status
     bool handleDropInternal(QDropEvent *event, const QString &dir);
     int popupPosition() const; // 0: West, 1: North, 2: East, 3: South
     void setPopupPosition(int);
+    void connectQuickSizeCalculator(SizeCalculator *sizeCalculator);
 
 private:
+    QUrl _navigatorUrl; // distinguish between new user set URL and new custom set URL
     bool _locked;
     QList<int> popupSizes;
 };

@@ -47,7 +47,7 @@ class KgColors : public KonfiguratorPage
     Q_OBJECT
 
 public:
-    KgColors(bool first, QWidget* parent = 0);
+    explicit KgColors(bool first, QWidget* parent = 0);
 
     virtual bool apply() Q_DECL_OVERRIDE;
 
@@ -71,7 +71,7 @@ protected slots:
 private:
     class PreviewItem;
 
-    int                        addColorSelector(QString cfgName, QString name, QColor dflt, QString dfltName = QString(),
+    int                        addColorSelector(QString cfgName, QString name, QColor defaultValue, QString dfltName = QString(),
             ADDITIONAL_COLOR *addColor = 0, int addColNum = 0);
     KonfiguratorColorChooser  *getColorSelector(QString name);
     QLabel                    *getSelectorLabel(QString name);

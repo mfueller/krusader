@@ -25,7 +25,7 @@
 #include "krmainwindow.h"
 #include "Panel/listpanel.h"
 #include "Panel/panelfunc.h"
-#include "Panel/krviewfactory.h"
+#include "Panel/PanelView/krviewfactory.h"
 
 #include <assert.h>
 
@@ -40,8 +40,6 @@
 #include <KI18n/KLocalizedString>
 #include <KIconThemes/KIconLoader>
 
-
-#define HIDE_ON_SINGLE_TAB  false
 
 PanelManager::PanelManager(QWidget *parent, KrMainWindow* mainWindow, bool left) :
         QWidget(parent),
@@ -70,7 +68,7 @@ PanelManager::PanelManager(QWidget *parent, KrMainWindow* mainWindow, bool left)
     connect(_tabbar, SIGNAL(currentChanged(int)), this, SLOT(slotCurrentTabChanged(int)));
     connect(_tabbar, SIGNAL(tabCloseRequested(int)), this, SLOT(slotCloseTab(int)));
     connect(_tabbar, SIGNAL(closeCurrentTab()), this, SLOT(slotCloseTab()));
-    connect(_tabbar, SIGNAL(newTab(const QUrl&)), this, SLOT(slotNewTab(const QUrl&)));
+    connect(_tabbar, SIGNAL(newTab(QUrl)), this, SLOT(slotNewTab(QUrl)));
     connect(_tabbar, SIGNAL(draggingTab(QMouseEvent*)), this, SLOT(slotDraggingTab(QMouseEvent*)));
     connect(_tabbar, SIGNAL(draggingTabFinished(QMouseEvent*)), this, SLOT(slotDraggingTabFinished(QMouseEvent*)));
 
@@ -95,15 +93,12 @@ PanelManager::PanelManager(QWidget *parent, KrMainWindow* mainWindow, bool left)
 
 void PanelManager::tabsCountChanged()
 {
-    bool showTabbar = true;
-    if (_tabbar->count() <= 1 && HIDE_ON_SINGLE_TAB)
-        showTabbar = false;
+    const KConfigGroup cfg(krConfig, "Look&Feel");
+    const bool showTabbar = _tabbar->count() > 1 || cfg.readEntry("Show Tab Bar On Single Tab", true);
+    const bool showButtons = showTabbar && cfg.readEntry("Show Tab Buttons", true);
 
-    KConfigGroup cfg(krConfig, "Look&Feel");
-    bool showButtons = showTabbar && cfg.readEntry("Show Tab Buttons", true);
-
-    _newTab->setVisible(showButtons);
     _tabbar->setVisible(showTabbar);
+    _newTab->setVisible(showButtons);
 
     // disable close button if only 1 tab is left
     _tabbar->setTabsClosable(showButtons && _tabbar->count() > 1);
@@ -150,16 +145,15 @@ ListPanel* PanelManager::createPanel(KConfigGroup cfg)
 
 void PanelManager::connectPanel(ListPanel *p)
 {
-    connect(p, SIGNAL(activate()), this, SLOT(activate()));
-    connect(p, &ListPanel::pathChanged, [=]() { pathChanged(p); });
-    connect(p, &ListPanel::pathChanged, [=]() { _tabbar->updateTab(p); });
+    connect(p, &ListPanel::activate, this, &PanelManager::activate);
+    connect(p, &ListPanel::pathChanged, this, [=]() { pathChanged(p); });
+    connect(p, &ListPanel::pathChanged, this, [=]() { _tabbar->updateTab(p); });
 }
 
 void PanelManager::disconnectPanel(ListPanel *p)
 {
-    disconnect(p, SIGNAL(activate()), this, 0);
-    disconnect(p, SIGNAL(pathChanged(ListPanel*)), this, 0);
-    disconnect(p, SIGNAL(pathChanged(ListPanel*)), _tabbar, 0);
+    disconnect(p, &ListPanel::activate, this, nullptr);
+    disconnect(p, &ListPanel::pathChanged, this, nullptr);
 }
 
 ListPanel* PanelManager::addPanel(bool setCurrent, KConfigGroup cfg, KrPanel *nextTo)
@@ -183,7 +177,7 @@ void PanelManager::saveSettings(KConfigGroup config, bool saveHistory)
     config.writeEntry("ActiveTab", activeTab());
 
     KConfigGroup grpTabs(&config, "Tabs");
-    foreach(QString grpTab, grpTabs.groupList())
+    foreach(const QString &grpTab, grpTabs.groupList())
         grpTabs.deleteGroup(grpTab);
 
     for(int i = 0; i < _tabbar->count(); i++) {
@@ -207,6 +201,7 @@ void PanelManager::loadSettings(KConfigGroup config)
 
         ListPanel *panel = i < numTabsOld ? _tabbar->getPanel(i) : addPanel(false, grpTab);
         panel->restoreSettings(grpTab);
+        _tabbar->updateTab(panel);
     }
 
     for(int i = numTabsOld - 1; i >= numTabsNew && i > 0; i--)
@@ -249,7 +244,23 @@ void PanelManager::moveTabToOtherSide()
 void PanelManager::slotNewTab(const QUrl &url, bool setCurrent, KrPanel *nextTo)
 {
     ListPanel *p = addPanel(setCurrent, KConfigGroup(), nextTo);
-    p->start(url);
+    if(nextTo && nextTo->gui) {
+        // We duplicate tab settings by writing original settings to a temporary
+        // group and making the new tab read settings from it. Duplicating
+        // settings directly would add too much complexity.
+        QString grpName = "PanelManager_" + QString::number(qApp->applicationPid());
+        krConfig->deleteGroup(grpName); // make sure the group is empty
+        KConfigGroup cfg(krConfig, grpName);
+
+        nextTo->gui->saveSettings(cfg, true);
+        p->restoreSettings(cfg);
+        krConfig->deleteGroup(grpName);
+
+        // reset undesired duplicated settings
+        p->setLocked(false);
+    }
+    else
+        p->start(url);
 }
 
 void PanelManager::slotNewTab()
@@ -265,7 +276,7 @@ void PanelManager::slotCloseTab()
 void PanelManager::slotCloseTab(int index)
 {
     if (_tabbar->count() <= 1)    /* if this is the last tab don't close it */
-        return ;
+        return;
 
     ListPanel *oldp;
 
@@ -352,27 +363,19 @@ void PanelManager::slotPreviousTab()
     _tabbar->setCurrentIndex(nextInd);
 }
 
-void PanelManager::refreshAllTabs()
+void PanelManager::reloadConfig()
 {
-    int i = 0;
-    while (i < _tabbar->count()) {
+    for (int i = 0; i < _tabbar->count(); i++) {
         ListPanel *panel = _tabbar->getPanel(i);
-        if (panel && panel->func) {
-            vfs * vfs = panel->func->files();
-            if (vfs) {
-                vfs->refresh();
-            }
+        if (panel) {
+            panel->func->refresh();
         }
-        ++i;
     }
 }
 
 void PanelManager::deletePanel(ListPanel * p)
 {
     disconnect(p);
-    if (p && p->func && p->func->files()) {
-        p->func->files()->deleteLater();
-    }
     delete p;
 }
 
@@ -427,8 +430,10 @@ int PanelManager::findTab(QUrl url)
 
 void PanelManager::slotLockTab()
 {
-    currentPanel()->gui->setLocked(!currentPanel()->gui->isLocked());
+    ListPanel *panel = _self;
+    panel->gui->setLocked(!panel->gui->isLocked());
     _actions->refreshActions();
+    _tabbar->updateTab(panel);
 }
 
 void PanelManager::newTabs(const QStringList& urls) {

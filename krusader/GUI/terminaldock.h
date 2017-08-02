@@ -42,12 +42,10 @@ class KrMainWindow;
 class TerminalDock : public QWidget
 {
     Q_OBJECT
-public slots:
-    void killTerminalEmulator();
 public:
     TerminalDock(QWidget* parent, KrMainWindow *mainWindow);
     virtual ~TerminalDock();
-    void sendInput(const QString& input);
+    void sendInput(const QString& input, bool clearCommand=true);
     void sendCd(const QString& path);
     virtual bool eventFilter(QObject * watched, QEvent * e) Q_DECL_OVERRIDE;
     bool isTerminalVisible() const;
@@ -58,6 +56,8 @@ public:
     inline KParts::Part* part() {
         return konsole_part;
     }
+private slots:
+    void killTerminalEmulator();
 private:
     KrMainWindow *_mainWindow;
     QString lastPath;                       // path of the last sendCd

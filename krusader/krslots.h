@@ -71,16 +71,16 @@ class KRslots : public QObject
     Q_OBJECT
 
 public:
-    enum compareMode { full } ;
+    enum compareMode { full };
 
-    KRslots(QObject *parent);
+    explicit KRslots(QObject *parent);
     ~KRslots() {}
 
 public slots:
     void sendFileByEmail(const QList<QUrl> &filename);
     void compareContent();
     void compareContent(QUrl, QUrl);
-    void insertFileName(bool full_path);
+    void insertFileName(bool fullPath);
     void rootKrusader();
     void swapPanels();
     void showHiddenFiles(bool show);
@@ -89,7 +89,7 @@ public slots:
     void toggleTerminal();
     void compareSetup();
     void emptyTrash();
-    void trashBin();
+    void trashPopupMenu();
     /** called by actExec* actions to choose the built-in command line mode */
     void execTypeSetup();
     void refresh(const QUrl &u);
@@ -101,7 +101,6 @@ public slots:
     void locate();
     void runTerminal(const QString & dir);
     void homeTerminal();
-    void sysInfo();
     void addBookmark();
     void toggleFnkeys();
     void toggleCmdline();
@@ -109,7 +108,6 @@ public slots:
     void cmdlinePopup();
     void slotSplit();
     void slotCombine();
-    void userMenu();
     void manageUseractions();
 #ifdef SYNCHRONIZER_ENABLED
     void slotSynchronizeDirs(QStringList selected = QStringList());

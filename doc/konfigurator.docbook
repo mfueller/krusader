@@ -158,7 +158,7 @@
             </listitem>
             <listitem>
               <para>
-              <guilabel>Show terminal emulator</guilabel>: If
+              <guilabel>Show embedded terminal</guilabel>: If
               checked, the <link linkend="termemu">Terminal emulator</link> is visible
               after start-up. Available only if the <guilabel>Save component settings on exit</guilabel> item is unchecked.</para>
             </listitem>
@@ -249,6 +249,11 @@
           <para>
           <guilabel>Tab Bar position</guilabel>: Lets you choose <link linkend="folder-tabs">Tab bar</link> position (<guimenuitem>Bottom</guimenuitem> or <guimenuitem>Top</guimenuitem>).</para>
         </listitem>
+	<listitem>
+          <para>
+          <guilabel>Show Tab Bar on single tab</guilabel>: If checked,
+	  &krusader; displays the Tab Bar even if there is only one <link linkend="folder-tabs">tab</link> on the panel.</para>
+        </listitem>
       </itemizedlist>
       <itemizedlist>
         <title>
@@ -316,6 +321,11 @@
         </listitem>
         <listitem>
           <para>
+          <guilabel>Tooltip delay (msec)</guilabel>: Allows you to configure the delay in milliseconds
+          between the moment you have stopped mouse pointer above an item in a file list and the moment when the tooltip will be shown.</para>
+        </listitem>
+        <listitem>
+          <para>
           <guilabel>Use human readable file size</guilabel>: If
           checked, the file size appears in kB, Mb
           &etc;, and not in bytes (default).</para>
@@ -334,8 +344,13 @@
         </listitem>
         <listitem>
           <para>
-          <guilabel>Load the user defined folder icons</guilabel>:  If checked,
+          <guilabel>Load the user defined folder icons</guilabel>: If checked,
         &krusader; loads the user defined folder icons.</para>
+        </listitem>
+        <listitem>
+          <para>
+          <guilabel>Always show current item</guilabel>: If checked,
+        &krusader; shows current item border decoration in inactive panel.</para>
         </listitem>
         <listitem>
           <para>
@@ -614,9 +629,9 @@
         </listitem>
         <listitem>
           <para>
-          <guilabel>Obey KDE global selection policy</guilabel>:
+          <guilabel>Obey global selection policy</guilabel>:
           Pressing the &LMB; selects files -- Use
-          &kde;'s global setting: &kde;
+          global setting: &plasma;
           System Settings -&gt; Input Devices
           -&gt; Mouse.</para>
         </listitem>
@@ -625,7 +640,7 @@
           <itemizedlist>
             <listitem>
               <para>
-                <guilabel>Based on &kde;'s selection mode</guilabel>
+                <guilabel>Based on &plasma;'s selection mode</guilabel>
               </para>
             </listitem>
             <listitem>
@@ -664,12 +679,7 @@
             </listitem>
             <listitem>
               <para>
-                <guilabel>Space bar moves down</guilabel>
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <guilabel>Space bar calculates diskspace</guilabel>
+                <guilabel>Spacebar moves down</guilabel>
               </para>
             </listitem>
             <listitem>
@@ -746,7 +756,7 @@
             <listitem>
               <para>
               <guilabel>Use the default KDE colors</guilabel>: this
-              is the default, it uses &kde; color
+              is the default, it uses &plasma; color
               defined in the &systemsettings;.</para>
             </listitem>
             <listitem>
@@ -756,7 +766,7 @@
               <guilabel>Background</guilabel> color and the
               <guilabel>Alternate background</guilabel> color
               alternates line by line. When you do not use the
-              &kde; default colors, you can configure
+              &plasma; default colors, you can configure
               the alternate colors in the
               <guilabel>Colors</guilabel> box.</para>
             </listitem>
@@ -766,7 +776,7 @@
               focused</guilabel>: If checked, shows the last cursor
               position in the non active list panel. This option is
               only available when you do not use the
-              &kde; default colors.</para>
+              &plasma; default colors.</para>
             </listitem>
             <listitem>
               <para>
@@ -776,7 +786,7 @@
               configured in the
               <guilabel>Inactive</guilabel> tab of the
               <guilabel>Colors</guilabel> box. This option is only
-              available when you do not use the &kde;
+              available when you do not use the &plasma;
               default colors.</para>
             </listitem>
           </itemizedlist>
@@ -936,7 +946,7 @@
           &krusader; to use <trademark class="copyright">Total Commander</trademark>,
           <application>Midnight Commander</application>, foo-commander or your own custom color
           profile. The Color Schemes are stored in
-          <filename>$KDEDIR/share/krusader</filename>, the
+          <filename>/usr/share/krusader</filename>, the
           <filename>foo.color</filename> is a binary file that holds
           the color scheme.</para>
           <tip>
@@ -1010,22 +1020,22 @@
 	<guilabel>Delete mode</guilabel> (<guilabel>Delete files/Move to trash</guilabel>): when
         &krusader; deletes files it can either <emphasis>really</emphasis>
         delete them or move them to the trash folder, thereby
-        making them available via &kde;'s trash.
+        making them available via &plasma;'s trash.
       </para>
       <para>
-        <guilabel>Terminal</guilabel>: choose which terminal
+        <guilabel>External Terminal</guilabel>: choose which terminal
         emulator will be used when &krusader; opens a
 	console window (via <keycap>F2</keycap>, or <menuchoice><guimenu>Tools</guimenu>
 	<guimenuitem>Start Terminal</guimenuitem></menuchoice>
         menu option).
       </para>
       <para>
-        <guilabel>Terminal Emulator sends Chdir on a panel
+        <guilabel>Embedded Terminal sends Chdir on panel
         change</guilabel>: if unchecked, there will be no
         <command>cd</command> command sent to the Terminal Emulator
         if the panel folder changes.</para>
       <para>
-	<guilabel>Fullscreen terminal (mc-style)</guilabel>: if checked,
+	<guilabel>Toggle Fullscreen Embedded Terminal</guilabel>: if checked,
 	  &krusader; shows fullscreen terminal in
 	  <application>Midnight Commander</application> style (Terminal is shown
 	  instead of &krusader; window).
@@ -1069,12 +1079,12 @@
          <para>
          <guilabel>Use lister if the text file is bigger than: 10 MB (default value)</guilabel>:
 	 checks whether a text file is bigger than 10 MB (configurable), and if yes,
-	 then &krusader; Lister is used instead of &kde;'s default viewer.</para>
+	 then &krusader; Lister is used instead of &plasma;'s default viewer.</para>
 	</listitem>
 	<listitem>
          <para>
 	   <guilabel>Use Okteta as Hex viewer</guilabel>:
-	   if checked (default option), use &kde; hex editor <ulink url="http://docs.kde.org/stable/en/kdesdk/okteta/index.html">Okteta</ulink> to view
+	   if checked (default option), use &plasma; hex editor <ulink url="http://docs.kde.org/stable/en/kdesdk/okteta/index.html">Okteta</ulink> to view
 	   raw data. To use this option you should install <application>Okteta</application> package first.</para>
 	</listitem>
 	</itemizedlist>
@@ -1084,7 +1094,7 @@
         <para>
         <guilabel>Editor</guilabel>: choose what editor will be
 	  used when editing a file (via <keycap>F4</keycap>). Default the internal viewer is used,
-	this is the &kde;'s default viewer.</para>
+	this is the &plasma;'s default viewer.</para>
       </listitem>
     </itemizedlist>
     </sect2>

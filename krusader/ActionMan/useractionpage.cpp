@@ -39,7 +39,6 @@
 
 #include "actionproperty.h"
 #include "useractionlistview.h"
-#include "../UserMenu/usermenu.h" //FIXME this should not be needed here!
 #include "../UserAction/useraction.h"
 #include "../UserAction/kraction.h"
 #include "../krusader.h"
@@ -121,7 +120,7 @@ UserActionPage::UserActionPage(QWidget* parent)
     actionProperties = new ActionProperty(split);
     actionProperties->setEnabled(false);   // if there are any actions in the list, the first is displayed and this widget is enabled
 
-    connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), SLOT(slotChangeCurrent()));
+    connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), SLOT(slotChangeCurrent()));
     connect(newButton, SIGNAL(clicked()), SLOT(slotNewAction()));
     connect(removeButton, SIGNAL(clicked()), SLOT(slotRemoveAction()));
     connect(importButton, SIGNAL(clicked()), SLOT(slotImport()));
@@ -149,16 +148,16 @@ bool UserActionPage::continueInSpiteOfChanges()
                  i18n("The current action has been modified. Do you want to apply these changes?")
                                                  );
     if (answer == KMessageBox::Cancel) {
-        disconnect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), this, SLOT(slotChangeCurrent()));
+        disconnect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), this, SLOT(slotChangeCurrent()));
         actionTree->setCurrentAction(actionProperties->action());
-        connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), SLOT(slotChangeCurrent()));
+        connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), SLOT(slotChangeCurrent()));
         return false;
     }
     if (answer == KMessageBox::Yes) {
         if (! actionProperties->validProperties()) {
-            disconnect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), this, SLOT(slotChangeCurrent()));
+            disconnect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), this, SLOT(slotChangeCurrent()));
             actionTree->setCurrentAction(actionProperties->action());
-            connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), SLOT(slotChangeCurrent()));
+            connect(actionTree, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), SLOT(slotChangeCurrent()));
             return false;
         }
         slotUpdateAction();
@@ -199,7 +198,6 @@ void UserActionPage::slotUpdateAction()
         actionProperties->updateAction(action);
         UserActionListViewItem* item = actionTree->insertAction(action);
         actionTree->setCurrentItem(item);
-        krApp->userMenu->update();
     } else { // := edit an existing
         actionProperties->updateAction();
         actionTree->update(actionProperties->action());   // update the listviewitem as well...
@@ -230,7 +228,7 @@ void UserActionPage::slotRemoveAction()
                         KStandardGuiItem::remove(), //Label for the continue-button
                         KStandardGuiItem::cancel(),
                         "Confirm Remove UserAction", //dontAskAgainName (for the config-file)
-                        KMessageBox::Dangerous | KMessageBox::Notify) ;
+                        KMessageBox::Dangerous | KMessageBox::Notify);
 
     if (messageDelete != KMessageBox::Continue)
         return;

@@ -55,46 +55,46 @@
 #include "KrJS/krjs.h"
 #endif
 
-#include "KViewer/krviewer.h"
-#include "Panel/krviewfactory.h"
-#include "krusader.h"
-#include "kractions.h"
-#include "krusaderview.h"
-#include "Panel/listpanel.h"
-#include "Panel/krselectionmode.h"
-#include "Dialogs/krdialogs.h"
-#include "Dialogs/krspwidgets.h"
-#include "GUI/krusaderstatus.h"
-#include "Panel/panelfunc.h"
-#include "Konfigurator/konfigurator.h"
-#include "MountMan/kmountman.h"
 #include "defaults.h"
-#include "GUI/kfnkeys.h"
-#include "GUI/kcmdline.h"
-#include "GUI/terminaldock.h"
-#include "GUI/syncbrowsebutton.h"
-#include "GUI/mediabutton.h"
-#include "GUI/dirhistorybutton.h"
-#include "VFS/krquery.h"
-#include "Search/krsearchmod.h"
-#include "Search/krsearchdialog.h"
-#include "Locate/locate.h"
-#include "VFS/vfs.h"
-#include "VFS/vfile.h"
-#include "panelmanager.h"
-#include "Splitter/splittergui.h"
-#include "Splitter/splitter.h"
-#include "Splitter/combiner.h"
-#include "ActionMan/actionman.h"
-#include "UserMenu/usermenu.h"
-#include "Panel/panelpopup.h"
-#include "Dialogs/krspecialwidgets.h"
-#include "DiskUsage/diskusagegui.h"
+#include "kractions.h"
 #include "krservices.h"
-#include "Panel/krviewitem.h"
 #include "krtrashhandler.h"
-#include "BookMan/krbookmarkhandler.h"
+#include "krusader.h"
+#include "krusaderview.h"
+#include "panelmanager.h"
+
+#include "ActionMan/actionman.h"
 #include "BookMan/krbookmarkbutton.h"
+#include "BookMan/krbookmarkhandler.h"
+#include "Dialogs/krdialogs.h"
+#include "Dialogs/krspecialwidgets.h"
+#include "Dialogs/krspwidgets.h"
+#include "DiskUsage/diskusagegui.h"
+#include "FileSystem/fileitem.h"
+#include "FileSystem/filesystem.h"
+#include "FileSystem/krquery.h"
+#include "GUI/dirhistorybutton.h"
+#include "GUI/kcmdline.h"
+#include "GUI/kfnkeys.h"
+#include "GUI/krusaderstatus.h"
+#include "GUI/mediabutton.h"
+#include "GUI/terminaldock.h"
+#include "KViewer/krviewer.h"
+#include "Konfigurator/konfigurator.h"
+#include "Locate/locate.h"
+#include "MountMan/kmountman.h"
+#include "Panel/PanelView/krselectionmode.h"
+#include "Panel/PanelView/krview.h"
+#include "Panel/PanelView/krviewfactory.h"
+#include "Panel/PanelView/krviewitem.h"
+#include "Panel/listpanel.h"
+#include "Panel/panelfunc.h"
+#include "Panel/panelpopup.h"
+#include "Search/krsearchdialog.h"
+#include "Search/krsearchmod.h"
+#include "Splitter/combiner.h"
+#include "Splitter/splitter.h"
+#include "Splitter/splittergui.h"
 
 #ifdef SYNCHRONIZER_ENABLED
     #include "Synchronizer/synchronizergui.h"
@@ -163,23 +163,20 @@ void KRslots::sendFileByEmail(const QList<QUrl> &urls)
 
 void KRslots::compareContent()
 {
-    QStringList lstLeft, lstRight;
-    QStringList* lstActive;
+    const QStringList lstLeft = LEFT_PANEL->getSelectedNames();
+    const QStringList lstRight = RIGHT_PANEL->getSelectedNames();
+    const QStringList lstActive = ACTIVE_PANEL->gui->isLeft() ? lstLeft : lstRight;
     QUrl name1, name2;
-
-    LEFT_PANEL->getSelectedNames(&lstLeft);
-    RIGHT_PANEL->getSelectedNames(&lstRight);
-    lstActive = (ACTIVE_PANEL->gui->isLeft() ? &lstLeft : &lstRight);
 
     if (lstLeft.count() == 1 && lstRight.count() == 1) {
         // first, see if we've got exactly 1 selected file in each panel:
         name1 = LEFT_PANEL->func->files()->getUrl(lstLeft[0]);
         name2 = RIGHT_PANEL->func->files()->getUrl(lstRight[0]);
-    } else if (lstActive->count() == 2) {
+    } else if (lstActive.count() == 2) {
         // next try: are in the current panel exacty 2 files selected?
-        name1 = ACTIVE_PANEL->func->files()->getUrl((*lstActive)[0]);
-        name2 = ACTIVE_PANEL->func->files()->getUrl((*lstActive)[1]);
-    } else if (ACTIVE_PANEL->otherPanel()->func->files()->getVfile(ACTIVE_VIEW->getCurrentItem())) {
+        name1 = ACTIVE_PANEL->func->files()->getUrl(lstActive[0]);
+        name2 = ACTIVE_PANEL->func->files()->getUrl(lstActive[1]);
+    } else if (ACTIVE_PANEL->otherPanel()->func->files()->getFileItem(ACTIVE_VIEW->getCurrentItem())) {
         // next try: is in the other panel a file with the same name?
         name1 = ACTIVE_PANEL->func->files()->getUrl(ACTIVE_VIEW->getCurrentItem());
         name2 = ACTIVE_PANEL->otherPanel()->func->files()->getUrl(ACTIVE_VIEW->getCurrentItem());
@@ -272,19 +269,19 @@ void KRslots::updateStatusbarVisibility()
 
 void KRslots::toggleTerminal()
 {
-    if (MAIN_VIEW->terminalDock()->isVisible()) MAIN_VIEW->slotTerminalEmulator(false);
-    else MAIN_VIEW->slotTerminalEmulator(true);
+    MAIN_VIEW->setTerminalEmulator(KrActions::actToggleTerminal->isChecked());
 }
 
-void KRslots::insertFileName(bool full_path)
+void KRslots::insertFileName(bool fullPath)
 {
     QString filename = ACTIVE_VIEW->getCurrentItem();
     if (filename.isEmpty()) {
         return;
     }
 
-    if (full_path) {
-        QString path = vfs::ensureTrailingSlash(ACTIVE_FUNC->files()->currentDirectory()).toDisplayString(QUrl::PreferLocalFile);
+    if (fullPath) {
+        const QString path = FileSystem::ensureTrailingSlash(ACTIVE_PANEL->virtualPath())
+                                 .toDisplayString(QUrl::PreferLocalFile);
         filename = path + filename;
     }
 
@@ -297,8 +294,8 @@ void KRslots::insertFileName(bool full_path)
         MAIN_VIEW->cmdLine()->setText(current + filename);
         MAIN_VIEW->cmdLine()->setFocus();
     } else if (MAIN_VIEW->terminalDock()->isTerminalVisible()) {
-        filename = QChar(' ') + filename + QChar(' ');
-        MAIN_VIEW->terminalDock()->sendInput(filename);
+        filename = ' ' + filename + ' ';
+        MAIN_VIEW->terminalDock()->sendInput(filename, false);
         MAIN_VIEW->terminalDock()->setFocus();
     }
 }
@@ -326,7 +323,7 @@ void KRslots::configChanged(bool isGUIRestartNeeded)
     if (isGUIRestartNeeded) {
         krApp->setUpdatesEnabled(false);
         KConfigGroup group(krConfig, "Look&Feel");
-        vfile::vfile_loadUserDefinedFolderIcons(group.readEntry("Load User Defined Folder Icons", _UserDefinedFolderIcons));
+        FileItem::loadUserDefinedFolderIcons(group.readEntry("Load User Defined Folder Icons", _UserDefinedFolderIcons));
 
         bool leftActive = ACTIVE_PANEL->gui->isLeft();
         MAIN_VIEW->leftManager()->slotRecreatePanels();
@@ -340,15 +337,18 @@ void KRslots::configChanged(bool isGUIRestartNeeded)
         krApp->setUpdatesEnabled(true);
     }
 
+    krApp->setTray();
+
     // really ugly, but reload the Fn keys just in case - csaba: any better idea?
     MAIN_VIEW->fnKeys()->updateShortcuts();
 
-    bool showHidden = KConfigGroup(krConfig, "Look&Feel").readEntry("Show Hidden", KrActions::actToggleHidden->isChecked());
+    const bool showHidden = KConfigGroup(krConfig, "Look&Feel")
+                                .readEntry("Show Hidden", KrActions::actToggleHidden->isChecked());
 
     if (showHidden != KrActions::actToggleHidden->isChecked()) {
         KrActions::actToggleHidden->setChecked(showHidden);
-        MAIN_VIEW->leftManager()->refreshAllTabs();
-        MAIN_VIEW->rightManager()->refreshAllTabs();
+        MAIN_VIEW->leftManager()->reloadConfig();
+        MAIN_VIEW->rightManager()->reloadConfig();
     }
 }
 
@@ -357,14 +357,14 @@ void KRslots::showHiddenFiles(bool show)
     KConfigGroup group(krConfig, "Look&Feel");
     group.writeEntry("Show Hidden", show);
 
-    MAIN_VIEW->leftManager()->refreshAllTabs();
-    MAIN_VIEW->rightManager()->refreshAllTabs();
+    MAIN_VIEW->leftManager()->reloadConfig();
+    MAIN_VIEW->rightManager()->reloadConfig();
 }
 
 void KRslots::swapPanels()
 {
-    QUrl leftURL = LEFT_PANEL->func->files()->currentDirectory();
-    QUrl rightURL = RIGHT_PANEL->func->files()->currentDirectory();
+    QUrl leftURL = LEFT_PANEL->virtualPath();
+    QUrl rightURL = RIGHT_PANEL->virtualPath();
 
     LEFT_PANEL->func->openUrl(rightURL);
     RIGHT_PANEL->func->openUrl(leftURL);
@@ -436,15 +436,6 @@ void KRslots::homeTerminal()
     runTerminal(QDir::homePath());
 }
 
-void KRslots::sysInfo()
-{
-    KProcess proc;
-    proc << KrServices::fullPathName("kcmshell") << "System/ksysctrl";
-    if (!proc.startDetached()) {
-        KMessageBox::sorry(krApp, i18n("Cannot find \"KsysCtrl\". Please install KDE admin package"));
-    }
-}
-
 void KRslots::multiRename()
 {
     QStringList lst = KrServices::supportedTools();
@@ -455,37 +446,52 @@ void KRslots::multiRename()
     }
     QString pathToRename = lst[i+1];
 
-    QStringList names;
-    ACTIVE_PANEL->gui->getSelectedNames(&names);
-    QList<QUrl> urls = ACTIVE_FUNC->files()->getUrls(names);
-
-    if (urls.isEmpty()) {
+    const QStringList names = ACTIVE_PANEL->gui->getSelectedNames();
+    if (names.isEmpty()) {
         return;
     }
 
     KProcess proc;
     proc << pathToRename;
 
-    foreach (const QUrl &url, urls) {
-        if (QFileInfo(url.path()).isDir()) proc << "-r";
-        proc << url.path();
+    for (const QString name: names) {
+        FileItem *file = ACTIVE_FUNC->files()->getFileItem(name);
+        if (!file)
+            continue;
+        const QUrl url = file->getUrl();
+        // KRename only supports the recursive option combined with a local directory path
+        if (file->isDir() && url.scheme() == "file") {
+            proc << "-r" << url.path();
+        } else {
+            proc << url.toString();
+        }
     }
 
     if (!proc.startDetached())
-        KMessageBox::error(0, i18n("Error executing %1.", pathToRename));
+        KMessageBox::error(0, i18n("Error executing '%1'.", proc.program().join(" ")));
 }
 
 void KRslots::rootKrusader()
 {
-    if (!KrServices::cmdExist("krusader") || !KrServices::cmdExist("kdesu")) {
-        KMessageBox::sorry(krApp, i18n("Cannot start root mode Krusader, because Krusader or kdesu is missing from the path. Please configure the dependencies in Konfigurator."));
+    if (KMessageBox::warningContinueCancel(
+            krApp, i18n("Improper operations in root mode can damage your operating system. "
+                        "<p>Furthermore, running UI applications as root is insecure and can "
+                        "allow attackers to gain root access."),
+            QString(), KStandardGuiItem::cont(), KStandardGuiItem::cancel(), "Confirm Root Mode",
+            KMessageBox::Notify | KMessageBox::Dangerous) != KMessageBox::Continue)
+        return;
+
+    if (!KrServices::isExecutable(KDESU_PATH)) {
+        KMessageBox::sorry(krApp,
+            i18n("Cannot start root mode Krusader, %1 not found or not executable. "
+                 "Please verify that kde-cli-tools are installed.", QString(KDESU_PATH)));
         return;
     }
 
     KProcess proc;
-    proc << KrServices::fullPathName("kdesu") << "-c" << KrServices::fullPathName("krusader")
-    + " --left=" + KrServices::quote(LEFT_PANEL->func->files()->currentDirectory().toDisplayString(QUrl::PreferLocalFile))
-    + " --right=" + KrServices::quote(RIGHT_PANEL->func->files()->currentDirectory().toDisplayString(QUrl::PreferLocalFile));
+    proc << KDESU_PATH << "-c" << QApplication::instance()->applicationFilePath()
+    + " --left=" + KrServices::quote(LEFT_PANEL->virtualPath().toDisplayString(QUrl::PreferLocalFile))
+    + " --right=" + KrServices::quote(RIGHT_PANEL->virtualPath().toDisplayString(QUrl::PreferLocalFile));
 
     if (!proc.startDetached())
         KMessageBox::error(0, i18n("Error executing %1.", proc.program()[0]));
@@ -493,10 +499,8 @@ void KRslots::rootKrusader()
 
 void KRslots::slotSplit()
 {
-    QStringList list;
+    const QStringList list = ACTIVE_PANEL->gui->getSelectedNames();
     QString name;
-
-    ACTIVE_PANEL->gui->getSelectedNames(&list);
 
     // first, see if we've got exactly 1 selected file, if not, try the current one
     if (list.count() == 1) name = list[0];
@@ -511,12 +515,12 @@ void KRslots::slotSplit()
     if (fileURL.isEmpty())
         return;
 
-    if (ACTIVE_FUNC->files()->getVfile(name)->vfile_isDir()) {
+    if (ACTIVE_FUNC->files()->getFileItem(name)->isDir()) {
         KMessageBox::sorry(krApp, i18n("You cannot split a folder."));
-        return ;
+        return;
     }
 
-    QUrl destDir = ACTIVE_PANEL->otherPanel()->func->files()->currentDirectory();
+    const QUrl destDir = ACTIVE_PANEL->otherPanel()->virtualPath();
 
     SplitterGUI splitterGUI(MAIN_VIEW, fileURL, destDir);
 
@@ -534,28 +538,27 @@ void KRslots::slotSplit()
 
 void KRslots::slotCombine()
 {
-    QStringList   list;
+    const QStringList list = ACTIVE_PANEL->gui->getSelectedNames();
+    if (list.isEmpty()) {
+        KMessageBox::error(0, i18n("Do not know which files to combine."));
+        return;
+    }
+
     QUrl          baseURL;
     bool          unixStyle = false;
     bool          windowsStyle = false;
     QString       commonName;
     int           commonLength = 0;
 
-    ACTIVE_PANEL->gui->getSelectedNames(&list);
-    if (list.isEmpty()) {
-        KMessageBox::error(0, i18n("Do not know which files to combine."));
-        return;
-    }
-
     /* checking splitter names */
-    for (QStringList::Iterator it = list.begin(); it != list.end(); ++it) {
+    for (QStringList::ConstIterator it = list.begin(); it != list.end(); ++it) {
         QUrl url = ACTIVE_FUNC->files()->getUrl(*it);
         if (url.isEmpty())
             return;
 
-        if (ACTIVE_FUNC->files()->getVfile(*it)->vfile_isDir()) {
+        if (ACTIVE_FUNC->files()->getFileItem(*it)->isDir()) {
             KMessageBox::sorry(krApp, i18n("You cannot combine a folder."));
-            return ;
+            return;
         }
 
         if (!unixStyle) {
@@ -607,11 +610,11 @@ void KRslots::slotCombine()
                             QString shorter  = commonName.left(commonName.length() - 1);
                             QString testFile = shorter.leftJustified(commonLength, fillLetter);
 
-                            if (ACTIVE_FUNC->files()->getVfile(testFile) == 0)
+                            if (ACTIVE_FUNC->files()->getFileItem(testFile) == 0)
                                 break;
                             else {
                                 commonName = shorter;
-                                baseURL = ACTIVE_FUNC->files()->currentDirectory().adjusted(QUrl::StripTrailingSlash);
+                                baseURL = ACTIVE_PANEL->virtualPath().adjusted(QUrl::StripTrailingSlash);
                                 baseURL.setPath(baseURL.path() + '/' + (testFile));
                             }
                         }
@@ -643,13 +646,6 @@ void KRslots::slotCombine()
         ACTIVE_PANEL->otherPanel()->func->refresh();
 }
 
-void KRslots::userMenu()
-{
-    //UserMenu um;
-    //um.exec();
-    krApp->userMenu->exec();
-}
-
 void KRslots::manageUseractions()
 {
     ActionMan actionMan(MAIN_VIEW);
@@ -658,8 +654,9 @@ void KRslots::manageUseractions()
 #ifdef SYNCHRONIZER_ENABLED
 void KRslots::slotSynchronizeDirs(QStringList selected)
 {
-    new SynchronizerGUI(0, LEFT_PANEL->func->files()->currentDirectory(),
-                        RIGHT_PANEL->func->files()->currentDirectory(), selected);
+    SynchronizerGUI *synchronizerDialog = new SynchronizerGUI(MAIN_VIEW, LEFT_PANEL->virtualPath(),
+                                                              RIGHT_PANEL->virtualPath(), selected);
+    synchronizerDialog->show(); // destroyed on close
 }
 #endif
 
@@ -690,7 +687,8 @@ void KRslots::execTypeSetup()
 
 void KRslots::slotDiskUsage()
 {
-    DiskUsageGUI du(ACTIVE_FUNC->files()->currentDirectory(), MAIN_VIEW);
+    DiskUsageGUI *diskUsageDialog = new DiskUsageGUI(ACTIVE_PANEL->virtualPath());
+    diskUsageDialog->askDirAndShow();
 }
 
 void KRslots::applicationStateChanged()
@@ -698,12 +696,13 @@ void KRslots::applicationStateChanged()
     if (MAIN_VIEW == 0) {  /* CRASH FIX: it's possible that the method is called after destroying the main view */
         return;
     }
-    if(qApp->applicationState() == Qt::ApplicationActive) {
-        LEFT_PANEL->panelActive();
-        RIGHT_PANEL->panelActive();
+    if(qApp->applicationState() == Qt::ApplicationActive ||
+       qApp->applicationState() == Qt::ApplicationInactive) {
+        LEFT_PANEL->panelVisible();
+        RIGHT_PANEL->panelVisible();
     } else {
-        LEFT_PANEL->panelInactive();
-        RIGHT_PANEL->panelInactive();
+        LEFT_PANEL->panelHidden();
+        RIGHT_PANEL->panelHidden();
     }
 }
 
@@ -715,7 +714,7 @@ void KRslots::emptyTrash()
 #define OPEN_ID        100001
 #define EMPTY_TRASH_ID 100002
 
-void KRslots::trashBin()
+void KRslots::trashPopupMenu()
 {
     QMenu trashMenu(krApp);
     QAction * act = trashMenu.addAction(krLoader->loadIcon("document-open", KIconLoader::Panel), i18n("Open trash bin"));

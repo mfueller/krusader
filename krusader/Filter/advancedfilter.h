@@ -49,7 +49,7 @@ class AdvancedFilter : public QWidget, public FilterBase
     Q_OBJECT
 
 public:
-    AdvancedFilter(FilterTabs *tabs, QWidget *parent = 0);
+    explicit AdvancedFilter(FilterTabs *tabs, QWidget *parent = 0);
 
     virtual void          queryAccepted() Q_DECL_OVERRIDE {}
     virtual QString       name() Q_DECL_OVERRIDE {
@@ -116,6 +116,13 @@ private:
     void changeDate(KLineEdit *p);
     void fillList(KComboBox *list, QString filename);
     void invalidDateMessage(KLineEdit *p);
+    static QDate stringToDate(const QString& text) {
+        // 30.12.16 is interpreted as 1916-12-30
+        return QLocale().toDate(text, QLocale::ShortFormat).addYears(100);
+    }
+    static QString dateToString(const QDate& date) {
+        return QLocale().toString(date, QLocale::ShortFormat);
+    }
 };
 
 #endif /* ADVANCEDFILTER_H */

@@ -28,62 +28,64 @@
  *                                                                         *
  ***************************************************************************/
 
-
-
 #ifndef KRSEARCHMOD_H
 #define KRSEARCHMOD_H
 
 // QtCore
-#include <QObject>
-#include <QStringList>
 #include <QDateTime>
+#include <QObject>
 #include <QStack>
+#include <QStringList>
 #include <QUrl>
 
 #include <KIO/Global>
 
-#include "../VFS/default_vfs.h"
-#include "../VFS/virt_vfs.h"
-
-
 class KRQuery;
-class ftp_vfs;
+class FileItem;
+class FileSystem;
+class DefaultFileSystem;
+class VirtualFileSystem;
 
+/**
+ * Search for files based on a search query.
+ *
+ * Subdirectories are included if query->isRecursive() is true.
+ */
 class KRSearchMod : public QObject
 {
     Q_OBJECT
 public:
-    KRSearchMod(const KRQuery *q);
+    explicit KRSearchMod(const KRQuery *query);
     ~KRSearchMod();
 
-    void scanURL(QUrl url);
     void start();
     void stop();
 
 private:
-    void scanLocalDir(QUrl url);
-    void scanRemoteDir(QUrl url);
+    void scanUrl(const QUrl &url);
+    void scanDirectory(const QUrl &url);
+    FileSystem *getFileSystem(const QUrl &url);
 
 signals:
+    void searching(const QString &url);
+    void found(const FileItem &file, const QString &foundText);
+    // NOTE: unused
+    void error(const QUrl &url);
     void finished();
-    void searching(const QString&);
-    void found(QString what, QString where,KIO::filesize_t size, time_t mtime,
-               QString perm, uid_t owner, gid_t group, QString textFound);
 
 private slots:
-    void slotProcessEvents(bool & stopped);
+    void slotProcessEvents(bool &stopped);
 
 private:
-    bool stopSearch;
-    QStack<QUrl> scannedUrls;
-    QStack<QUrl> unScannedUrls;
-    KRQuery *query;
-    QStringList results;
+    KRQuery *m_query;
+    DefaultFileSystem *m_defaultFileSystem;
+    VirtualFileSystem *m_virtualFileSystem;
 
-    default_vfs *remote_vfs;
-    virt_vfs *virtual_vfs;
+    bool m_stopSearch;
 
-    QTime timer;
+    QStack<QUrl> m_scannedUrls;
+    QStack<QUrl> m_unScannedUrls;
+    QTime m_timer;
 };
 
 #endif

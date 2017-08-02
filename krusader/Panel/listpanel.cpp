@@ -58,46 +58,50 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 #include <KI18n/KLocalizedString>
 #include <KIconThemes/KIconLoader>
 #include <KIO/DropJob>
-#include <KIOCore/KMountPoint>
-#include <KIOCore/KDiskFreeSpaceInfo>
 #include <KWidgetsAddons/KCursor>
 #include <KWidgetsAddons/KMessageBox>
 #include <KIOFileWidgets/KFilePlacesModel>
 #include <KIOWidgets/KUrlComboBox>
 
-#include "../defaults.h"
-#include "../krusader.h"
-#include "../krslots.h"
-#include "../kicons.h"
-#include "../krusaderview.h"
-#include "../krservices.h"
-#include "../VFS/krpermhandler.h"
-#include "../Archive/krarchandler.h"
-#include "../MountMan/kmountman.h"
-#include "../BookMan/krbookmarkbutton.h"
-#include "../Dialogs/krdialogs.h"
-#include "../Dialogs/krspwidgets.h"
-#include "../Dialogs/percentalsplitter.h"
-#include "../Dialogs/popularurls.h"
-#include "../GUI/kcmdline.h"
-#include "../GUI/dirhistorybutton.h"
-#include "../GUI/mediabutton.h"
-#include "../GUI/syncbrowsebutton.h"
-#include "../UserAction/useractionpopupmenu.h"
-
-#include "listpanelactions.h"
-#include "viewactions.h"
-#include "krpreviewpopup.h"
-#include "panelpopup.h"
-#include "panelfunc.h"
-#include "krpopupmenu.h"
-#include "krviewfactory.h"
+#include "dirhistoryqueue.h"
 #include "krcolorcache.h"
 #include "krerrordisplay.h"
 #include "krlayoutfactory.h"
+#include "krpreviewpopup.h"
 #include "krsearchbar.h"
-#include "dirhistoryqueue.h"
+#include "listpanelactions.h"
+#include "panelcontextmenu.h"
+#include "panelfunc.h"
+#include "panelpopup.h"
+#include "viewactions.h"
 
+#include "PanelView/krview.h"
+#include "PanelView/krviewfactory.h"
+#include "PanelView/krviewitem.h"
+
+#include "../defaults.h"
+#include "../kicons.h"
+#include "../krservices.h"
+#include "../krslots.h"
+#include "../krusader.h"
+#include "../krusaderview.h"
+
+#include "../Archive/krarchandler.h"
+#include "../BookMan/krbookmarkbutton.h"
+#include "../FileSystem/fileitem.h"
+#include "../FileSystem/filesystem.h"
+#include "../FileSystem/krpermhandler.h"
+#include "../FileSystem/sizecalculator.h"
+#include "../Dialogs/krdialogs.h"
+#include "../Dialogs/krspwidgets.h"
+#include "../Dialogs/krsqueezedtextlabel.h"
+#include "../Dialogs/percentalsplitter.h"
+#include "../Dialogs/popularurls.h"
+#include "../GUI/dirhistorybutton.h"
+#include "../GUI/kcmdline.h"
+#include "../GUI/mediabutton.h"
+#include "../MountMan/kmountman.h"
+#include "../UserAction/useractionpopupmenu.h"
 
 class ActionButton : public QToolButton
 {
@@ -126,17 +130,16 @@ protected:
 //      The list panel constructor       //
 /////////////////////////////////////////////////////
 ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGroup cfg) :
-        QWidget(parent), KrPanel(manager),
+        QWidget(parent), KrPanel(manager, this, new ListPanelFunc(this)),
         panelType(-1), colorMask(255), compareMode(false),
         previewJob(0), inlineRefreshJob(0), searchBar(0), cdRootButton(0), cdUpButton(0),
-        popupBtn(0), popup(0), vfsError(0), _locked(false)
+        popupBtn(0), popup(0), fileSystemError(0), _navigatorUrl(), _locked(false)
 {
     if(cfg.isValid())
         panelType = cfg.readEntry("Type", -1);
     if (panelType == -1)
         panelType = defaultPanelType();
-    gui = this;
-    func = new ListPanelFunc(this);
+
     _actions = krApp->listPanelActions();
 
     setAcceptDrops(true);
@@ -148,8 +151,8 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     // media button
     mediaButton = new MediaButton(this);
     connect(mediaButton, SIGNAL(aboutToShow()), this, SLOT(slotFocusOnMe()));
-    connect(mediaButton, SIGNAL(openUrl(const QUrl&)), func, SLOT(openUrl(const QUrl&)));
-    connect(mediaButton, SIGNAL(newTab(const QUrl&)), SLOT(newTab(const QUrl&)));
+    connect(mediaButton, SIGNAL(openUrl(QUrl)), func, SLOT(openUrl(QUrl)));
+    connect(mediaButton, SIGNAL(newTab(QUrl)), SLOT(newTab(QUrl)));
     ADD_WIDGET(mediaButton);
 
     // status bar
@@ -181,7 +184,7 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     // bookmarks button
     bookmarksButton = new KrBookmarkButton(this);
     connect(bookmarksButton, SIGNAL(aboutToShow()), this, SLOT(slotFocusOnMe()));
-    connect(bookmarksButton, SIGNAL(openUrl(const QUrl&)), func, SLOT(openUrl(const QUrl&)));
+    connect(bookmarksButton, SIGNAL(openUrl(QUrl)), func, SLOT(openUrl(QUrl)));
     bookmarksButton->setWhatsThis(i18n("Open menu with bookmarks. You can also add "
                                        "current location to the list, edit bookmarks "
                                        "or add subfolder to the list."));
@@ -197,10 +200,10 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     urlNavigator->setUrlEditable(isNavigatorEditModeSet());
     urlNavigator->setShowFullPath(group.readEntry("Navigator Full Path", false));
     connect(urlNavigator, SIGNAL(returnPressed()), this, SLOT(slotFocusOnMe()));
-    connect(urlNavigator, SIGNAL(urlChanged(QUrl)), func, SLOT(navigatorUrlChanged(QUrl)));
-    connect(urlNavigator->editor()->lineEdit(), SIGNAL(editingFinished()), this, SLOT(resetNavigatorMode()));
+    connect(urlNavigator, &KUrlNavigator::urlChanged, this, &ListPanel::slotNavigatorUrlChanged);
+    connect(urlNavigator->editor()->lineEdit(), &QLineEdit::editingFinished, this, &ListPanel::resetNavigatorMode);
     connect(urlNavigator, SIGNAL(tabRequested(QUrl)), this, SLOT(newTab(QUrl)));
-    connect(urlNavigator, SIGNAL(urlsDropped(QUrl, QDropEvent*)), this, SLOT(handleDrop(QUrl, QDropEvent*)));
+    connect(urlNavigator, SIGNAL(urlsDropped(QUrl,QDropEvent*)), this, SLOT(handleDrop(QUrl,QDropEvent*)));
     ADD_WIDGET(urlNavigator);
 
     // toolbar
@@ -210,10 +213,10 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     toolbarLayout->setSpacing(0);
     ADD_WIDGET(toolbar);
 
-    vfsError = new KrErrorDisplay(this);
-    vfsError->setWordWrap(true);
-    vfsError->hide();
-    ADD_WIDGET(vfsError);
+    fileSystemError = new KrErrorDisplay(this);
+    fileSystemError->setWordWrap(true);
+    fileSystemError->hide();
+    ADD_WIDGET(fileSystemError);
 
     // client area
     clientArea = new QWidget(this);
@@ -238,17 +241,27 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     freeSpace->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     ADD_WIDGET(freeSpace);
 
+    // progress indicator and cancel button for the quick calc size
+    quickSizeCalcProgress = new QProgressBar(this);
+    quickSizeCalcProgress->hide();
+    ADD_WIDGET(quickSizeCalcProgress);
+    cancelQuickSizeCalcButton = new QToolButton(this);
+    cancelQuickSizeCalcButton->hide();
+    cancelQuickSizeCalcButton->setIcon(krLoader->loadIcon("dialog-cancel", KIconLoader::Toolbar, 16));
+    cancelQuickSizeCalcButton->setToolTip(i18n("Cancel directory space calculation"));
+    ADD_WIDGET(cancelQuickSizeCalcButton);
+
     // progress indicator for the preview job
     previewProgress = new QProgressBar(this);
     previewProgress->hide();
     ADD_WIDGET(previewProgress);
 
-    // a cancel button for the inplace refresh mechanism
-    inlineRefreshCancelButton = new QToolButton(this);
-    inlineRefreshCancelButton->hide();
-    inlineRefreshCancelButton->setIcon(krLoader->loadIcon("dialog-cancel", KIconLoader::Toolbar, 16));
-    connect(inlineRefreshCancelButton, SIGNAL(clicked()), this, SLOT(inlineRefreshCancel()));
-    ADD_WIDGET(inlineRefreshCancelButton);
+    // a cancel button for the filesystem refresh and preview job
+    cancelProgressButton = new QToolButton(this);
+    cancelProgressButton->hide();
+    cancelProgressButton->setIcon(krLoader->loadIcon("dialog-cancel", KIconLoader::Toolbar, 16));
+    connect(cancelProgressButton, SIGNAL(clicked()), this, SLOT(cancelProgress()));
+    ADD_WIDGET(cancelProgressButton);
 
     // button for changing the panel popup position in the panel
     popupPositionBtn = new QToolButton(this);
@@ -265,7 +278,7 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     popupBtn = new QToolButton(this);
     popupBtn->setAutoRaise(true);
     popupBtn->setIcon(krLoader->loadIcon("arrow-up", KIconLoader::Toolbar, 16));
-    connect(popupBtn, SIGNAL(clicked()), this, SLOT(togglePanelPopup()));
+    connect(popupBtn, &QToolButton::clicked, this, &ListPanel::togglePanelPopup);
     popupBtn->setToolTip(i18n("Open the popup panel"));
     ADD_WIDGET(popupBtn);
 
@@ -284,8 +297,20 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     cdRootButton = new ActionButton(toolbar, this, _actions->actRoot, "/");
     toolbarLayout->addWidget(cdRootButton);
 
-    // ... creates the button for sync-browsing
-    syncBrowseButton = new SyncBrowseButton(toolbar);
+    // create the button for sync-browsing
+    syncBrowseButton = new QToolButton(toolbar);
+    syncBrowseButton->setIcon(QIcon::fromTheme("kr_syncbrowse_off"));
+    syncBrowseButton->setCheckable(true);
+
+    const QString syncBrowseText = i18n("This button toggles the sync-browse mode.\n"
+                                        "When active, each folder change is performed in the\n"
+                                        "active and inactive panel - if possible.");
+    syncBrowseButton->setText(syncBrowseText);
+    syncBrowseButton->setToolTip(syncBrowseText);
+    connect(syncBrowseButton, &QToolButton::toggled, [=](bool checked) {
+        syncBrowseButton->setIcon(
+            QIcon::fromTheme(checked ? "kr_syncbrowse_on" : "kr_syncbrowse_off"));
+    });
     syncBrowseButton->setAutoRaise(true);
     toolbarLayout->addWidget(syncBrowseButton);
 
@@ -294,7 +319,7 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     // create a splitter to hold the view and the popup
     splt = new PercentalSplitter(clientArea);
     splt->setChildrenCollapsible(true);
-    splt->setOrientation(Qt::Vertical);
+    splt->setOrientation(Qt::Horizontal);
     // expand vertical if splitter orientation is horizontal
     QSizePolicy sizePolicy = splt->sizePolicy();
     sizePolicy.setVerticalPolicy(QSizePolicy::Expanding);
@@ -338,7 +363,7 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
         h->addWidget(bookmarksButton);
         v->addLayout(h);
 
-        v->addWidget(vfsError);
+        v->addWidget(fileSystemError);
         v->addWidget(clientArea);
 
         h = new QHBoxLayout;
@@ -346,8 +371,10 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
         h->setSpacing(0);
         h->addWidget(totals);
         h->addWidget(freeSpace);
+        h->addWidget(quickSizeCalcProgress);
+        h->addWidget(cancelQuickSizeCalcButton);
         h->addWidget(previewProgress);
-        h->addWidget(inlineRefreshCancelButton);
+        h->addWidget(cancelProgressButton);
         h->addWidget(popupBtn);
         v->addLayout(h);
 
@@ -357,12 +384,12 @@ ListPanel::ListPanel(QWidget *parent, AbstractPanelManager *manager, KConfigGrou
     setLayout(layout);
 
     connect(&KrColorCache::getColorCache(), SIGNAL(colorsRefreshed()), this, SLOT(refreshColors()));
-    connect(krApp, SIGNAL(shutdown()), SLOT(inlineRefreshCancel()));
+    connect(krApp, SIGNAL(shutdown()), SLOT(cancelProgress()));
 }
 
 ListPanel::~ListPanel()
 {
-    inlineRefreshCancel();
+    cancelProgress();
     delete view;
     view = 0;
     delete func;
@@ -415,23 +442,23 @@ void ListPanel::createView()
 
     view->widget()->installEventFilter(this);
 
-    connect(view->op(), SIGNAL(calcSpace(KrViewItem*)), func, SLOT(calcSpace(KrViewItem*)));
+    connect(view->op(), &KrViewOperator::quickCalcSpace, func, &ListPanelFunc::quickCalcSpace);
     connect(view->op(), SIGNAL(goHome()), func, SLOT(home()));
     connect(view->op(), SIGNAL(dirUp()), func, SLOT(dirUp()));
-    connect(view->op(), SIGNAL(deleteFiles(bool)), func, SLOT(deleteFiles(bool)));
-    connect(view->op(), SIGNAL(middleButtonClicked(KrViewItem *)), SLOT(newTab(KrViewItem *)));
-    connect(view->op(), SIGNAL(currentChanged(KrViewItem *)), SLOT(updatePopupPanel(KrViewItem*)));
-    connect(view->op(), SIGNAL(renameItem(const QString &, const QString &)),
-            func, SLOT(rename(const QString &, const QString &)));
-    connect(view->op(), SIGNAL(executed(const QString&)), func, SLOT(execute(const QString&)));
-    connect(view->op(), SIGNAL(goInside(const QString&)), func, SLOT(goInside(const QString&)));
+    connect(view->op(), &KrViewOperator::defaultDeleteFiles, func, &ListPanelFunc::defaultDeleteFiles);
+    connect(view->op(), SIGNAL(middleButtonClicked(KrViewItem*)), SLOT(newTab(KrViewItem*)));
+    connect(view->op(), SIGNAL(currentChanged(KrViewItem*)), SLOT(slotCurrentChanged(KrViewItem*)));
+    connect(view->op(), SIGNAL(renameItem(QString,QString)),
+            func, SLOT(rename(QString,QString)));
+    connect(view->op(), SIGNAL(executed(QString)), func, SLOT(execute(QString)));
+    connect(view->op(), SIGNAL(goInside(QString)), func, SLOT(goInside(QString)));
     connect(view->op(), SIGNAL(needFocus()), this, SLOT(slotFocusOnMe()));
     connect(view->op(), SIGNAL(selectionChanged()), this, SLOT(slotUpdateTotals()));
-    connect(view->op(), SIGNAL(itemDescription(QString&)), krApp, SLOT(statusBarUpdate(QString&)));
-    connect(view->op(), SIGNAL(contextMenu(const QPoint &)), this, SLOT(popRightClickMenu(const QPoint &)));
-    connect(view->op(), SIGNAL(emptyContextMenu(const QPoint &)),
-            this, SLOT(popEmptyRightClickMenu(const QPoint &)));
-    connect(view->op(), SIGNAL(letsDrag(QStringList, QPixmap)), this, SLOT(startDragging(QStringList, QPixmap)));
+    connect(view->op(), SIGNAL(itemDescription(QString)), krApp, SLOT(statusBarUpdate(QString)));
+    connect(view->op(), SIGNAL(contextMenu(QPoint)), this, SLOT(popRightClickMenu(QPoint)));
+    connect(view->op(), SIGNAL(emptyContextMenu(QPoint)),
+            this, SLOT(popEmptyRightClickMenu(QPoint)));
+    connect(view->op(), SIGNAL(letsDrag(QStringList,QPixmap)), this, SLOT(startDragging(QStringList,QPixmap)));
     connect(view->op(), &KrViewOperator::gotDrop,
             this, [this](QDropEvent *event) {handleDrop(event, true); });
     connect(view->op(), SIGNAL(previewJobStarted(KJob*)), this, SLOT(slotPreviewJobStarted(KJob*)));
@@ -471,7 +498,7 @@ void ListPanel::changeType(int type)
 int ListPanel::getProperties()
 {
     int props = 0;
-    if (syncBrowseButton->state() == SYNCBROWSE_CD)
+    if (syncBrowseButton->isChecked())
         props |= PROP_SYNC_BUTTON_ON;
     if (_locked)
         props |= PROP_LOCKED;
@@ -529,15 +556,15 @@ bool ListPanel::eventFilter(QObject * watched, QEvent * e)
 void ListPanel::togglePanelPopup()
 {
     if(!popup) {
-        popup = new PanelPopup(splt, isLeft(), krApp);
+        popup = new PanelPopup(splt);
         // fix vertical grow of splitter (and entire window) if its content
         // demands more space
         QSizePolicy sizePolicy = popup->sizePolicy();
         sizePolicy.setVerticalPolicy(QSizePolicy::Ignored);
         popup->setSizePolicy(sizePolicy);
-        connect(this, SIGNAL(pathChanged(const QUrl&)), popup, SLOT(onPanelPathChange(const QUrl&)));
-        connect(popup, SIGNAL(selection(const QUrl&)), SLOTS, SLOT(refresh(const QUrl&)));
-        connect(popup, SIGNAL(hideMe()), this, SLOT(togglePanelPopup()));
+        connect(this, &ListPanel::pathChanged, popup, &PanelPopup::onPanelPathChange);
+        connect(popup, &PanelPopup::urlActivated, SLOTS, &KRslots::refresh);
+        splt->insertWidget(0, popup);
     }
 
     if (popup->isHidden()) {
@@ -569,9 +596,9 @@ void ListPanel::togglePanelPopup()
     }
 }
 
-QString ListPanel::realPath() const
+QString ListPanel::lastLocalPath() const
 {
-    return _realPath.path();
+    return _lastLocalPath;
 }
 
 void ListPanel::setButtons()
@@ -628,20 +655,20 @@ void ListPanel::compareDirs(bool otherPanelToo)
         if (item->name() == "..")
             continue;
 
-        for (otherItem = otherPanel()->view->getFirst(); otherItem != 0 && otherItem->name() != item->name() ;
+        for (otherItem = otherPanel()->view->getFirst(); otherItem != 0 && otherItem->name() != item->name();
                 otherItem = otherPanel()->view->getNext(otherItem));
 
         bool isSingle = (otherItem == 0), isDifferent = false, isNewer = false;
 
-        if (func->getVFile(item)->vfile_isDir() && !selectDirs) {
+        if (func->getFileItem(item)->isDir() && !selectDirs) {
             item->setSelected(false);
             continue;
         }
 
         if (otherItem) {
-            if (!func->getVFile(item)->vfile_isDir())
-                isDifferent = ITEM2VFILE(otherPanel(), otherItem)->vfile_getSize() != func->getVFile(item)->vfile_getSize();
-            isNewer = func->getVFile(item)->vfile_getTime_t() > ITEM2VFILE(otherPanel(), otherItem)->vfile_getTime_t();
+            if (!func->getFileItem(item)->isDir())
+                isDifferent = otherPanel()->func->getFileItem(otherItem)->getSize() != func->getFileItem(item)->getSize();
+            isNewer = func->getFileItem(item)->getTime_t() > otherPanel()->func->getFileItem(otherItem)->getTime_t();
         }
 
         switch (compareMode) {
@@ -688,42 +715,37 @@ void ListPanel::slotFocusOnMe(bool focus)
         emit activate();
         _actions->activePanelChanged();
         func->refreshActions();
-        updatePopupPanel(view->getCurrentKrViewItem());
+        slotCurrentChanged(view->getCurrentKrViewItem());
         view->prepareForActive();
         otherPanel()->gui->slotFocusOnMe(false);
     } else {
         // in case a new url was entered but not refreshed to,
         // reset url navigator to the current url
-        urlNavigator->setLocationUrl(virtualPath());
+        setNavigatorUrl(virtualPath());
         view->prepareForPassive();
     }
 
     urlNavigator->setActive(focus);
     refreshColors();
-    emit refreshPathLabel();
 
     krApp->setUpdatesEnabled(true);
 }
 
 // this is used to start the panel
 //////////////////////////////////////////////////////////////////
-void ListPanel::start(QUrl url, bool immediate)
+void ListPanel::start(const QUrl &url)
 {
-    QUrl virt(url);
+    QUrl startUrl(url);
 
-    if (!virt.isValid())
-        virt = QUrl::fromLocalFile(ROOT_DIR);
-    if (virt.isLocalFile())
-        _realPath = virt;
-    else
-        _realPath = QUrl::fromLocalFile(ROOT_DIR);
+    if (!startUrl.isValid())
+        startUrl = QUrl::fromLocalFile(ROOT_DIR);
 
-    if (immediate)
-        func->immediateOpenUrl(virt, true);
-    else
-        func->openUrl(virt);
+    _lastLocalPath = startUrl.isLocalFile() ? startUrl.path() : ROOT_DIR;
 
-    setJumpBack(virt);
+
+    func->openUrl(startUrl);
+
+    setJumpBack(startUrl);
 }
 
 void ListPanel::slotStartUpdate(bool directoryChange)
@@ -740,10 +762,10 @@ void ListPanel::slotStartUpdate(bool directoryChange)
             slotFocusOnMe();
         }
 
-        if (func->files()->isLocal())
-            _realPath = currentUrl;
+        if (currentUrl.isLocalFile())
+            _lastLocalPath = currentUrl.path();
 
-        urlNavigator->setLocationUrl(currentUrl);
+        setNavigatorUrl(currentUrl);
 
         emit pathChanged(currentUrl);
 
@@ -751,8 +773,6 @@ void ListPanel::slotStartUpdate(bool directoryChange)
 
         searchBar->hideBar();
     }
-
-    updateFilesystemStats(currentUrl);
 
     if (compareMode)
         otherPanel()->view->refresh();
@@ -763,73 +783,28 @@ void ListPanel::slotStartUpdate(bool directoryChange)
     slotUpdateTotals();
 }
 
-void ListPanel::updateFilesystemStats(const QUrl &url)
+void ListPanel::updateFilesystemStats(const QString &metaInfo, const QString &fsType,
+                                      KIO::filesize_t total, KIO::filesize_t free)
 {
-    mediaButton->mountPointChanged(QString());
-    freeSpace->setText(QString());
+    QString statusText, mountPoint, freeSpaceText;
 
-    if (!KConfigGroup(krConfig, "Look&Feel").readEntry("ShowSpaceInformation", true)) {
-        status->setText(func->files()->metaInformation().isEmpty()
-                            ? i18n("Space information disabled")
-                            : func->files()->metaInformation());
-        return;
-    }
+    if (!metaInfo.isEmpty()) {
+        statusText = metaInfo;
+        mountPoint = freeSpaceText = "";
+    } else {
+        const int perc = total == 0 ? 0 : (int)(((float)free / (float)total) * 100.0);
+        mountPoint = func->files()->mountPoint();
+        statusText = i18nc("%1=free space,%2=total space,%3=percentage of usage, "
+                           "%4=mountpoint,%5=filesystem type",
+                           "%1 free out of %2 (%3%) on %4 [(%5)]", KIO::convertSize(free),
+                           KIO::convertSize(total), perc, mountPoint, fsType);
 
-    if (!url.isLocalFile()) {
-        status->setText(func->files()->metaInformation().isEmpty()
-                            ? i18n("No space information on non-local filesystems")
-                            : func->files()->metaInformation());
-        return;
-    }
-
-    // check for special filesystems;
-    QString path = url.path(); // must be local url
-    if (path.left(4) == "/dev") {
-        status->setText(i18n("No space information on [dev]"));
-        return;
-    }
-#ifdef BSD
-    if (path.left(5) == "/procfs") { // /procfs is a special case - no volume information
-        status->setText(i18n("No space information on [procfs]"));
-        return;
-    }
-#else
-    if (path.left(5) == "/proc") { // /proc is a special case - no volume information
-        status->setText(i18n("No space information on [proc]"));
-        return;
-    }
-#endif
-
-    KDiskFreeSpaceInfo info = KDiskFreeSpaceInfo::freeSpaceInfo(path);
-    if(!info.isValid()) {
-        status->setText(i18n("Space information unavailable"));
-        return;
-    }
-    int perc = 0;
-    if (info.size() != 0) { // make sure that if totalsize==0, then perc=0
-        perc = (int)(((float)info.available() / (float)info.size()) * 100.0);
-    }
-    // mount point information - find it in the list first
-    KMountPoint::List lst = KMountPoint::currentMountPoints();
-    QString fstype = i18nc("Unknown file system type", "unknown");
-    for (KMountPoint::List::iterator it = lst.begin(); it != lst.end(); ++it) {
-        if ((*it)->mountPoint() == info.mountPoint()) {
-            fstype = (*it)->mountType();
-            break;
-        }
+        freeSpaceText = "    " + i18n("%1 free", KIO::convertSize(free));
     }
 
-    QString stats = i18nc("%1=free space,%2=total space,%3=percentage of usage, "
-                          "%4=mountpoint,%5=filesystem type",
-                          "%1 free out of %2 (%3%) on %4 [(%5)]",
-                          KIO::convertSize(info.available()),
-                          KIO::convertSize(info.size()), perc,
-                          info.mountPoint(), fstype);
-
-    status->setText(stats);
-
-    freeSpace->setText("    " + i18n("%1 free", KIO::convertSize(info.available())));
-    mediaButton->mountPointChanged(info.mountPoint());
+    status->setText(statusText);
+    freeSpace->setText(freeSpaceText);
+    mediaButton->updateIcon(mountPoint);
 }
 
 void ListPanel::handleDrop(QDropEvent *event, bool onView)
@@ -846,16 +821,16 @@ void ListPanel::handleDrop(QDropEvent *event, bool onView)
     const bool dragFromThisPanel = event->source() == this;
     const KrViewItem *item = onView ? view->getKrViewItemAt(event->pos()) : 0;
     if (item) {
-        const vfile *file = item->getVfile();
-        if (file && !file->vfile_isDir() && dragFromThisPanel) {
+        const FileItem *file = item->getFileItem();
+        if (file && !file->isDir() && dragFromThisPanel) {
             event->ignore(); // dragging on files in same panel, ignore
-            return ;
-        } else if (!file || file->vfile_isDir()) { // item is ".." dummy or a directory
+            return;
+        } else if (!file || file->isDir()) { // item is ".." dummy or a directory
             destinationDir = item->name();
         }
     } else if (dragFromThisPanel) {
         event->ignore(); // dragged from this panel onto an empty spot in this panel, ignore
-        return ;
+        return;
     }
 
     QUrl destination = QUrl(virtualPath());
@@ -890,7 +865,7 @@ void ListPanel::startDragging(QStringList names, QPixmap px)
     mimeData->setUrls(urls);
     drag->setMimeData(mimeData);
 
-    drag->start();
+    drag->start(Qt::MoveAction | Qt::CopyAction | Qt::LinkAction);
 }
 
 // pops a right-click menu for items
@@ -898,12 +873,12 @@ void ListPanel::popRightClickMenu(const QPoint &loc)
 {
     // run it, on the mouse location
     int j = QFontMetrics(font()).height() * 2;
-    KrPopupMenu::run(QPoint(loc.x() + 5, loc.y() + j), this);
+    PanelContextMenu::run(QPoint(loc.x() + 5, loc.y() + j), this);
 }
 
 void ListPanel::popEmptyRightClickMenu(const QPoint &loc)
 {
-    KrPopupMenu::run(loc, this);
+    PanelContextMenu::run(loc, this);
 }
 
 QString ListPanel::getCurrentName()
@@ -913,6 +888,13 @@ QString ListPanel::getCurrentName()
         return name;
     else
         return QString();
+}
+
+QStringList ListPanel::getSelectedNames()
+{
+    QStringList fileNames;
+    view->getSelectedItems(&fileNames);
+    return fileNames;
 }
 
 void ListPanel::prepareToDelete()
@@ -927,13 +909,16 @@ void ListPanel::keyPressEvent(QKeyEvent *e)
     case Qt::Key_Return :
         if (e->modifiers() & Qt::ControlModifier) {
             if (e->modifiers() & Qt::AltModifier) {
-                vfile *vf = func->files()->getVfile(view->getCurrentKrViewItem()->name());
-                if (vf && vf->vfile_isDir())
-                    newTab(vf->vfile_getUrl(), true);
+                FileItem *fileitem =
+                    func->files()->getFileItem(view->getCurrentKrViewItem()->name());
+                if (fileitem && fileitem->isDir())
+                    newTab(fileitem->getUrl(), true);
             } else {
                 SLOTS->insertFileName((e->modifiers() & Qt::ShiftModifier) != 0);
             }
-        } else e->ignore();
+        } else {
+            e->ignore();
+        }
         break;
     case Qt::Key_Right :
     case Qt::Key_Left :
@@ -945,26 +930,26 @@ void ListPanel::keyPressEvent(QKeyEvent *e)
                 KrViewItem *it = view->getCurrentKrViewItem();
 
                 if (it->name() == "..") {
-                    newPath = KIO::upUrl(func->files()->currentDirectory());
+                    newPath = KIO::upUrl(virtualPath());
                 } else {
-                    vfile *v = func->getVFile(it);
+                    FileItem *v = func->getFileItem(it);
                     // If it's a directory different from ".."
-                    if (v && v->vfile_isDir() && v->vfile_getName() != "..") {
-                        newPath = v->vfile_getUrl();
+                    if (v && v->isDir() && v->getName() != "..") {
+                        newPath = v->getUrl();
                     } else {
                         // If it's a supported compressed file
-                        if (v && KRarcHandler::arcSupported(v->vfile_getMime()))   {
-                            newPath = func->browsableArchivePath(v->vfile_getUrl().fileName());
+                        if (v && KRarcHandler::arcSupported(v->getMime()))   {
+                            newPath = func->browsableArchivePath(v->getUrl().fileName());
                         } else {
-                            newPath = func->files()->currentDirectory();
+                            newPath = virtualPath();
                         }
                     }
                 }
                 otherPanel()->func->openUrl(newPath);
             } else {
-                func->openUrl(otherPanel()->func->files()->currentDirectory());
+                func->openUrl(otherPanel()->virtualPath());
             }
-            return ;
+            return;
         } else
             e->ignore();
         break;
@@ -974,7 +959,7 @@ void ListPanel::keyPressEvent(QKeyEvent *e)
                 MAIN_VIEW->cmdLineFocus();
             else
                 MAIN_VIEW->focusTerminalEmulator();
-            return ;
+            return;
         } else if (e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)) {     // give the keyboard focus to TE
             MAIN_VIEW->focusTerminalEmulator();
         } else
@@ -984,13 +969,13 @@ void ListPanel::keyPressEvent(QKeyEvent *e)
     case Qt::Key_Up :
         if (e->modifiers() == Qt::ControlModifier) {   // give the keyboard focus to the url navigator
             editLocation();
-            return ;
+            return;
         } else
             e->ignore();
         break;
 
     case Qt::Key_Escape:
-        inlineRefreshCancel();
+        cancelProgress();
         break;
 
     default:
@@ -1005,39 +990,37 @@ void ListPanel::keyPressEvent(QKeyEvent *e)
 
 void ListPanel::showEvent(QShowEvent *e)
 {
-    panelActive();
+    panelVisible();
     QWidget::showEvent(e);
 }
 
 void ListPanel::hideEvent(QHideEvent *e)
 {
-    panelInactive();
+    panelHidden();
     QWidget::hideEvent(e);
 }
 
-void ListPanel::panelActive()
+void ListPanel::panelVisible()
 {
-    //func->files()->vfs_enableRefresh(true)
+    func->setPaused(false);
 }
 
-void ListPanel::panelInactive()
+void ListPanel::panelHidden()
 {
-    // don't refresh when not active (ie: hidden, application isn't focused ...)
-    // TODO disabled so that the user sees changes in non-focused window; if the performance impact
-    // is too high we need another solution here
-    //func->files()->vfs_enableRefresh(false);
+    func->setPaused(true);
 }
 
 void ListPanel::slotPreviewJobStarted(KJob *job)
 {
     previewJob = job;
+    connect(job, SIGNAL(percent(KJob*,ulong)), SLOT(slotPreviewJobPercent(KJob*,ulong)));
+    connect(job, &KJob::result, this, &ListPanel::slotPreviewJobResult);
+    cancelProgressButton->setMaximumHeight(popupBtn->height());
+    cancelProgressButton->show();
     previewProgress->setValue(0);
     previewProgress->setFormat(i18n("loading previews: %p%"));
+    previewProgress->setMaximumHeight(cancelProgressButton->height());
     previewProgress->show();
-    inlineRefreshCancelButton->show();
-    previewProgress->setMaximumHeight(inlineRefreshCancelButton->height());
-    connect(job, SIGNAL(percent(KJob*, unsigned long)), SLOT(slotPreviewJobPercent(KJob*, unsigned long)));
-    connect(job, SIGNAL(result(KJob*)), SLOT(slotPreviewJobResult(KJob*)));
 }
 
 void ListPanel::slotPreviewJobPercent(KJob* /*job*/, unsigned long percent)
@@ -1050,10 +1033,10 @@ void ListPanel::slotPreviewJobResult(KJob* /*job*/)
     previewJob = 0;
     previewProgress->hide();
     if(!inlineRefreshJob)
-        inlineRefreshCancelButton->hide();
+        cancelProgressButton->hide();
 }
 
-void ListPanel::slotJobStarted(KIO::Job* job)
+void ListPanel::slotRefreshJobStarted(KIO::Job* job)
 {
     // disable the parts of the panel we don't want touched
     status->setEnabled(false);
@@ -1070,20 +1053,20 @@ void ListPanel::slotJobStarted(KIO::Job* job)
     syncBrowseButton->setEnabled(false);
 
     // connect to the job interface to provide in-panel refresh notification
-    connect(job, SIGNAL(infoMessage(KJob*, const QString &)),
-            SLOT(inlineRefreshInfoMessage(KJob*, const QString &)));
-    connect(job, SIGNAL(percent(KJob*, unsigned long)),
-            SLOT(inlineRefreshPercent(KJob*, unsigned long)));
+    connect(job, SIGNAL(infoMessage(KJob*,QString)),
+            SLOT(inlineRefreshInfoMessage(KJob*,QString)));
+    connect(job, SIGNAL(percent(KJob*,ulong)),
+            SLOT(inlineRefreshPercent(KJob*,ulong)));
     connect(job, SIGNAL(result(KJob*)),
             this, SLOT(inlineRefreshListResult(KJob*)));
 
     inlineRefreshJob = job;
 
     totals->setText(i18n(">> Reading..."));
-    inlineRefreshCancelButton->show();
+    cancelProgressButton->show();
 }
 
-void ListPanel::inlineRefreshCancel()
+void ListPanel::cancelProgress()
 {
     if (inlineRefreshJob) {
         disconnect(inlineRefreshJob, 0, this, 0);
@@ -1095,6 +1078,12 @@ void ListPanel::inlineRefreshCancel()
         previewJob->kill(KJob::EmitResult);
         slotPreviewJobResult(0);
     }
+}
+
+void ListPanel::setNavigatorUrl(const QUrl &url)
+{
+    _navigatorUrl = url;
+   urlNavigator->setLocationUrl(url);
 }
 
 void ListPanel::inlineRefreshPercent(KJob*, unsigned long perc)
@@ -1128,7 +1117,7 @@ void ListPanel::inlineRefreshListResult(KJob*)
     syncBrowseButton->setEnabled(true);
 
     if(!previewJob)
-        inlineRefreshCancelButton->hide();
+        cancelProgressButton->hide();
 }
 
 void ListPanel::jumpBack()
@@ -1141,14 +1130,11 @@ void ListPanel::setJumpBack(QUrl url)
     _jumpBackURL = url;
 }
 
-void ListPanel::slotVfsError(QString msg)
+void ListPanel::slotFilesystemError(QString msg)
 {
-    if (func->ignoreVFSErrors())
-        return;
-
     refreshColors();
-    vfsError->setText(i18n("Error: %1", msg));
-    vfsError->show();
+    fileSystemError->setText(i18n("Error: %1", msg));
+    fileSystemError->show();
 }
 
 void ListPanel::showButtonMenu(QToolButton *b)
@@ -1232,22 +1218,26 @@ void ListPanel::saveSettings(KConfigGroup cfg, bool saveHistory)
 void ListPanel::restoreSettings(KConfigGroup cfg)
 {
     changeType(cfg.readEntry("Type", defaultPanelType()));
-
-    setProperties(cfg.readEntry("Properties", 0));
     view->restoreSettings(KConfigGroup(&cfg, "View"));
 
-    _realPath = QUrl::fromLocalFile(ROOT_DIR);
+    // "locked" property must be set after URL path is restored!
+    // This panel can be reused when loading a profile,
+    // so we reset its properties before calling openUrl().
+    setProperties(0);
 
-    if(func->history->restore(KConfigGroup(&cfg, "History")))
+    _lastLocalPath = ROOT_DIR;
+    if(func->history->restore(KConfigGroup(&cfg, "History"))) {
         func->refresh();
-    else {
-        QUrl url(cfg.readEntry("Url", ROOT_DIR));
+    } else {
+        QUrl url(cfg.readEntry("Url", "invalid"));
         if (!url.isValid())
             url = QUrl::fromLocalFile(ROOT_DIR);
         func->openUrl(url);
     }
 
     setJumpBack(func->history->currentUrl());
+
+    setProperties(cfg.readEntry("Properties", 0));
 
     if (cfg.hasKey("PopupPosition")) { // popup was visible, restore
         togglePanelPopup(); // create and show
@@ -1258,9 +1248,13 @@ void ListPanel::restoreSettings(KConfigGroup cfg)
     }
 }
 
-void ListPanel::updatePopupPanel(KrViewItem *item)
+void ListPanel::slotCurrentChanged(KrViewItem *item)
 {
-    // which panel to display on?
+    // update status bar
+    if (item)
+        krApp->statusBarUpdate(item->description());
+
+    // update popup panel; which panel to display on?
     PanelPopup *p;
     if(popup && !popup->isHidden())
         p = popup;
@@ -1269,7 +1263,7 @@ void ListPanel::updatePopupPanel(KrViewItem *item)
     else
         return;
 
-    p->update(item ? func->files()->getVfile(item->name()) : 0);
+    p->update(item ? func->files()->getFileItem(item->name()) : 0);
 }
 
 void ListPanel::otherPanelChanged()
@@ -1304,12 +1298,29 @@ void ListPanel::newTab(KrViewItem *it)
         return;
     else if (it->name() == "..") {
         newTab(KIO::upUrl(virtualPath()), true);
-    } else if (ITEM2VFILE(this, it)->vfile_isDir()) {
+    } else if (func->getFileItem(it)->isDir()) {
         QUrl url = virtualPath();
         url = url.adjusted(QUrl::StripTrailingSlash);
         url.setPath(url.path() + '/' + (it->name()));
         newTab(url, true);
     }
+}
+
+void ListPanel::newTab(const QUrl &url, bool nextToThis)
+{
+    _manager->newTab(url, nextToThis ? this : 0);
+}
+
+void ListPanel::slotNavigatorUrlChanged(const QUrl &url)
+{
+    if (url == _navigatorUrl)
+        return; // this is the URL we just set ourself
+
+    if (!isNavigatorEditModeSet()) {
+        urlNavigator->setUrlEditable(false);
+    }
+
+    func->openUrl(KrServices::escapeFileUrl(url), QString(), true);
 }
 
 void ListPanel::resetNavigatorMode()
@@ -1337,4 +1348,19 @@ void ListPanel::setPopupPosition(int pos)
     if ((pos < 2) != (qobject_cast<PanelPopup*>(splt->widget(0)) != NULL)) {
         splt->insertWidget(0, splt->widget(1)); // swapping widgets in splitter
     }
+}
+
+void ListPanel::connectQuickSizeCalculator(SizeCalculator *sizeCalculator)
+{
+    connect(sizeCalculator, &SizeCalculator::started, this, [=]() {
+        quickSizeCalcProgress->reset();
+        quickSizeCalcProgress->show();
+        cancelQuickSizeCalcButton->show();
+    });
+    connect(cancelQuickSizeCalcButton, &QToolButton::clicked, sizeCalculator, &SizeCalculator::cancel);
+    connect(sizeCalculator, &SizeCalculator::progressChanged, quickSizeCalcProgress, &QProgressBar::setValue);
+    connect(sizeCalculator, &SizeCalculator::finished, this, [=]() {
+        cancelQuickSizeCalcButton->hide();
+        quickSizeCalcProgress->hide();
+    });
 }

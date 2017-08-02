@@ -19,17 +19,23 @@
 #ifndef KRFILETREEVIEW_H
 #define KRFILETREEVIEW_H
 
-#include <QModelIndex>
 #include <QList>
-#include <QUrl>
+#include <QModelIndex>
 #include <QTreeView>
+#include <QUrl>
 #include <QWidget>
 
-#include <KIOWidgets/KDirModel>
+#include <KConfigCore/KSharedConfig>
 #include <KIOFileWidgets/KDirSortFilterProxyModel>
+#include <KIOFileWidgets/KFilePlacesModel>
+#include <KIOWidgets/KDirModel>
 
 /**
- * @brief Shows a generic file tree
+ * Show folders in a tree view.
+ *
+ * A context menu with settings is accessible through the header.
+ *
+ * Supports dragging from this view and dropping files on it.
  */
 class KrFileTreeView : public QTreeView
 {
@@ -37,35 +43,45 @@ class KrFileTreeView : public QTreeView
     Q_OBJECT
 
 public:
-    KrFileTreeView(QWidget *parent = 0);
+    explicit KrFileTreeView(QWidget *parent = 0);
     virtual ~KrFileTreeView() {}
 
-    QUrl currentUrl() const;
-    bool briefMode() const;
-    void setBriefMode(bool brief); // show only column with directory names
+    void saveSettings(KConfigGroup cfg) const;
+    void restoreSettings(const KConfigGroup &cfg);
 
 public slots:
-    void setDirOnlyMode(bool enabled);
-    void setShowHiddenFiles(bool enabled);
     void setCurrentUrl(const QUrl &url);
 
 signals:
-    void activated(const QUrl &url);
+    void urlActivated(const QUrl &url);
 
 private slots:
-    void slotActivated(const QModelIndex&);
+    void slotActivated(const QModelIndex &index);
     void slotExpanded(const QModelIndex&);
     void showHeaderContextMenu();
+    void slotCustomContextMenuRequested(const QPoint &point);
 
 protected:
     void dropEvent(QDropEvent *event) Q_DECL_OVERRIDE;
 
 private:
     QUrl urlForProxyIndex(const QModelIndex &index) const;
-    void dropMimeData(const QList<QUrl> & lst, const QUrl &url);
+    void dropMimeData(const QList<QUrl> & lst, const QUrl &url) const;
+    void copyToClipBoard(const KFileItem &fileItem, bool cut) const;
+    void deleteFile(const KFileItem &fileItem, bool moveToTrash = true) const;
+    bool briefMode() const;
+    void setBriefMode(bool brief); // show only column with directory names
+    void setTree(bool startFromCurrent, bool startFromPlace);
+    void setTreeRoot(const QUrl &rootBase);
 
     KDirModel *mSourceModel;
     KDirSortFilterProxyModel *mProxyModel;
+    KFilePlacesModel *mFilePlacesModel;
+    QUrl mCurrentUrl;
+    QUrl mCurrentTreeBase;
+
+    bool mStartTreeFromCurrent; // NAND...
+    bool mStartTreeFromPlace;
 };
 
 #endif // KRFILETREEVIEW_H

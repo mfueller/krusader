@@ -18,13 +18,15 @@
             <widget name="historyButton"/>
             <widget name="bookmarksButton"/>
         </layout>
-        <widget name="vfsError"/>
+        <widget name="fileSystemError"/>
         <widget name="clientArea"/>
         <layout type="horizontal">
             <frame type="horizontal" color="Statusbar" shape="Box" shadow="Raised">
                 <widget name="totals"/>
+                <widget name="quickSizeCalcProgress"/>
+                <widget name="cancelQuickSizeCalcButton"/>
                 <widget name="previewProgress"/>
-                <widget name="inlineRefreshCancelButton"/>
+                <widget name="cancelProgressButton"/>
                 <widget name="popupPositionBtn"/>
                 <widget name="popupBtn"/>
             </frame>
@@ -44,14 +46,16 @@
                 <widget name="bookmarksButton"/>
             </frame>
         </layout>
-        <widget name="vfsError"/>
+        <widget name="fileSystemError"/>
         <widget name="clientArea"/>
         <layout type="horizontal">
             <frame type="horizontal" color="Statusbar" shape="Box" shadow="Raised">
                 <widget name="totals"/>
                 <widget name="freeSpace"/>
+                <widget name="quickSizeCalcProgress"/>
+                <widget name="cancelQuickSizeCalcButton"/>
                 <widget name="previewProgress"/>
-                <widget name="inlineRefreshCancelButton"/>
+                <widget name="cancelProgressButton"/>
                 <widget name="popupPositionBtn"/>
                 <widget name="popupBtn"/>
             </frame>
@@ -74,14 +78,16 @@
             <widget name="historyButton"/>
             <widget name="bookmarksButton"/>
         </layout>
-        <widget name="vfsError"/>
+        <widget name="fileSystemError"/>
         <widget name="clientArea"/>
         <layout type="horizontal">
             <frame type="horizontal" color="Statusbar" shape="Box" shadow="Raised">
                 <widget name="totals"/>
             </frame>
+            <widget name="quickSizeCalcProgress"/>
+            <widget name="cancelQuickSizeCalcButton"/>
             <widget name="previewProgress"/>
-            <widget name="inlineRefreshCancelButton"/>
+            <widget name="cancelPreviewButton"/>
             <widget name="popupPositionBtn"/>
             <widget name="popupBtn"/>
         </layout>

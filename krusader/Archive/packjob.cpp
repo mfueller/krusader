@@ -65,10 +65,9 @@ void PackThread::slotStart()
     if (newSource.isEmpty())
         return;
 
-    KIO::filesize_t totalSize = 0;
-    unsigned long totalDirs = 0, totalFiles = 0;
+    unsigned long totalFiles = 0;
 
-    calcSpaceLocal(newSource, _fileNames, totalSize, totalDirs, totalFiles);
+    countLocalFiles(newSource, _fileNames, totalFiles);
 
     QString arcFile = tempFileIfRemote(_destUrl, _type);
     QString arcDir = newSource.adjusted(QUrl::StripTrailingSlash).path();
@@ -77,7 +76,7 @@ void PackThread::slotStart()
 
     QString save = QDir::currentPath();
     QDir::setCurrent(arcDir);
-    bool result = KRarcHandler::pack(_fileNames, _type, arcFile, totalFiles + totalDirs, _packProperties, observer());
+    bool result = KRarcHandler::pack(_fileNames, _type, arcFile, totalFiles, _packProperties, observer());
     QDir::setCurrent(save);
 
     if (isExited())
@@ -123,7 +122,7 @@ void TestArchiveThread::slotStart()
         // test the archive
         if (!KRarcHandler::test(path, type, password, observer(), 0)) {
             sendError(KIO::ERR_NO_CONTENT, i18nc("%1=archive filename", "%1, test failed.", arcName));
-            return ;
+            return;
         }
     }
 

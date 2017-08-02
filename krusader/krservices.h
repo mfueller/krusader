@@ -29,12 +29,16 @@
 class QTextStream;
 class QFile;
 
+/**
+ * Global static utility functions.
+ */
 class KrServices
 {
 public:
     static bool         cmdExist(QString cmdName);
     static QString      chooseFullPathName(QStringList names, QString confName);
     static QString      fullPathName(QString name, QString confName = QString());
+    static bool         isExecutable(const QString &path);
     static QString      registeredProtocol(QString mimetype);
     static bool         isoSupported(QString mimetype);
     static QString      urlToLocalPath(const QUrl &url);
@@ -48,7 +52,12 @@ public:
     static QStringList  supportedTools(); // find supported tools
     static QString      escapeFileUrl(QString urlString);
     static QUrl         escapeFileUrl(const QUrl &url);
-
+    /**
+     * Sets the global logging message handler for qDebug(), qWarning()... messages to a custom one
+     * with the ability to filter debug messages.
+     */
+    static void setGlobalKrMessageHandler(bool withDebugMessages);
+    static QString GLOBAL_MESSAGE_PATTERN;
 
 protected:
     static QString    escape(QString name);
@@ -60,7 +69,7 @@ private:
     static QMap<QString, QString>* slaveMap;
     static QSet<QString> krarcArchiveMimetypes;
     static QSet<QString> isoArchiveMimetypes;
-
+    static void krMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 };
 
 // TODO: make KrServices a namespace and move it there

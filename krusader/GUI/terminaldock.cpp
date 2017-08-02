@@ -40,15 +40,17 @@
 #include <KWidgetsAddons/KToggleAction>
 #include <KWidgetsAddons/KMessageBox>
 
-#include "../kractions.h"
-#include "../krusaderview.h"
-#include "../krmainwindow.h"
 #include "kcmdline.h"
-#include "../VFS/vfs.h"
-#include "../Panel/listpanel.h"
-#include "../Panel/panelfunc.h"
-#include "../Panel/listpanelactions.h"
+#include "../kractions.h"
+#include "../krmainwindow.h"
 #include "../krservices.h"
+#include "../krslots.h"
+#include "../krusaderview.h"
+#include "../FileSystem/filesystem.h"
+#include "../Panel/PanelView/krview.h"
+#include "../Panel/listpanel.h"
+#include "../Panel/listpanelactions.h"
+#include "../Panel/panelfunc.h"
 
 /**
  * A widget containing the konsolepart for the Embedded terminal emulator
@@ -116,14 +118,25 @@ void TerminalDock::killTerminalEmulator()
     konsole_part = NULL;
     t = NULL;
     qApp->removeEventFilter(this);
-    MAIN_VIEW->killTerminalEmulator();
+    MAIN_VIEW->setTerminalEmulator(false);
 }
 
-void TerminalDock::sendInput(const QString& input)
+void TerminalDock::sendInput(const QString& input, bool clearCommand)
 {
-    if (t) {
-        t->sendInput(input);
+    if (!t)
+        return;
+
+    if (clearCommand) {
+        // send SIGINT before input command to avoid unwanted behaviour when current line is not empty
+        // and command is appended to current input (e.g. "rm -rf x " concatenated with 'cd /usr');
+        // code "borrowed" from Dolphin, Copyright (C) 2007-2010 by Peter Penz <peter.penz19@gmail.com>
+        const int processId = t->terminalProcessId();
+        if (processId > 0) {
+            kill(processId, SIGINT);
+        }
     }
+
+    t->sendInput(input);
 }
 
 /*! Sends a `cd` command to the embedded terminal emulator so as to synchronize the directory of the actual panel and
@@ -148,8 +161,8 @@ bool TerminalDock::applyShortcuts(QKeyEvent * ke)
     int pressedKey = (ke->key() | ke->modifiers());
 
     // TODO KF5 removed
-    if (krToggleTerminal->shortcut().matches(pressedKey)) {
-        krToggleTerminal->activate(QAction::Trigger);
+    if (KrActions::actToggleTerminal->shortcut().matches(pressedKey)) {
+        KrActions::actToggleTerminal->activate(QAction::Trigger);
         return true;
     }
 
@@ -162,27 +175,15 @@ bool TerminalDock::applyShortcuts(QKeyEvent * ke)
         QString text = QApplication::clipboard()->text();
         if (! text.isEmpty()) {
             text.replace('\n', '\r');
-            sendInput(text);
+            sendInput(text, false);
         }
         return true;
     }
 
     //insert current to the terminal
-    if ((ke->key() == Qt::Key_Enter || ke->key() == Qt::Key_Return)
-            && ((ke->modifiers() & ~Qt::ShiftModifier) == Qt::ControlModifier)) {
-
-        QString filename = ACTIVE_PANEL->view->getCurrentItem();
-        if (filename.isEmpty()) {
-            return true;
-        }
-        if (ke->modifiers() & Qt::ShiftModifier) {
-            QString path = vfs::ensureTrailingSlash(ACTIVE_FUNC->files()->currentDirectory()).toDisplayString(QUrl::PreferLocalFile);
-            filename = path + filename;
-        }
-
-        filename = KrServices::quote(filename);
-
-        sendInput(QString(" ") + filename + QString(" "));
+    if ((ke->key() == Qt::Key_Enter || ke->key() == Qt::Key_Return) &&
+        (ke->modifiers() & Qt::ControlModifier)) {
+        SLOTS->insertFileName((ke->modifiers() & Qt::ShiftModifier) != 0);
         return true;
     }
 

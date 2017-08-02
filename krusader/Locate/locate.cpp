@@ -38,8 +38,8 @@
 #include "../GUI/krtreewidget.h"
 #include "../defaults.h"
 #include "../krservices.h"
-#include "../VFS/vfs.h"
-#include "../VFS/virt_vfs.h"
+#include "../FileSystem/filesystem.h"
+#include "../FileSystem/virtualfilesystem.h"
 #include "../KViewer/krviewer.h"
 #include "../panelmanager.h"
 #include "../kicons.h"
@@ -90,7 +90,7 @@
 class LocateListView : public KrTreeWidget
 {
 public:
-    LocateListView(QWidget * parent) : KrTreeWidget(parent) {
+    explicit LocateListView(QWidget * parent) : KrTreeWidget(parent) {
         setAlternatingRowColors(true);
     }
 
@@ -98,7 +98,7 @@ public:
         Q_UNUSED(supportedActs);
 
         QList<QUrl> urls;
-        QList<QTreeWidgetItem *> list = selectedItems() ;
+        QList<QTreeWidgetItem *> list = selectedItems();
 
         QListIterator<QTreeWidgetItem *> it(list);
 
@@ -200,12 +200,12 @@ LocateDlg::LocateDlg() : QDialog(0), isFeedToListBox(false)
     resultList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     resultList->setDragEnabled(true);
 
-    connect(resultList, SIGNAL(itemRightClicked(QTreeWidgetItem *, const QPoint &, int)),
-            this, SLOT(slotRightClick(QTreeWidgetItem *, const QPoint &)));
-    connect(resultList, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),
-            this, SLOT(slotDoubleClick(QTreeWidgetItem *)));
-    connect(resultList, SIGNAL(itemActivated(QTreeWidgetItem *, int)),
-            this, SLOT(slotDoubleClick(QTreeWidgetItem *)));
+    connect(resultList, SIGNAL(itemRightClicked(QTreeWidgetItem*,QPoint,int)),
+            this, SLOT(slotRightClick(QTreeWidgetItem*,QPoint)));
+    connect(resultList, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(slotDoubleClick(QTreeWidgetItem*)));
+    connect(resultList, SIGNAL(itemActivated(QTreeWidgetItem*,int)),
+            this, SLOT(slotDoubleClick(QTreeWidgetItem*)));
 
     grid->addWidget(resultList, 3, 0);
 
@@ -239,7 +239,7 @@ LocateDlg::LocateDlg() : QDialog(0), isFeedToListBox(false)
 
     if (updateProcess) {
         if (updateProcess->state() == QProcess::Running) {
-            connect(updateProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(updateFinished()));
+            connect(updateProcess, SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(updateFinished()));
             updateDbButton->setEnabled(false);
         } else
             updateFinished();
@@ -267,7 +267,7 @@ void LocateDlg::slotUpdateDb()   /* The Update DB button */
         *updateProcess << KrServices::fullPathName("updatedb");
         *updateProcess << KShell::splitArgs(group.readEntry("UpdateDB Arguments"));
 
-        connect(updateProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(updateFinished()));
+        connect(updateProcess, SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(updateFinished()));
         updateProcess->start();
         updateDbButton->setEnabled(false);
     }
@@ -311,7 +311,7 @@ void LocateDlg::slotLocate()   /* The locate button */
     locateProc->setOutputChannelMode(KProcess::SeparateChannels); // default is forwarding to the parent channels
     connect(locateProc, SIGNAL(readyReadStandardOutput()), SLOT(processStdout()));
     connect(locateProc, SIGNAL(readyReadStandardError()), SLOT(processStderr()));
-    connect(locateProc, SIGNAL(finished(int, QProcess::ExitStatus)), SLOT(locateFinished()));
+    connect(locateProc, SIGNAL(finished(int,QProcess::ExitStatus)), SLOT(locateFinished()));
     connect(locateProc, SIGNAL(error(QProcess::ProcessError)), SLOT(locateError()));
 
     *locateProc << KrServices::fullPathName("locate");
@@ -522,7 +522,7 @@ void LocateDlg::operate(QTreeWidgetItem *item, int task)
         QUrl url1 = QUrl::fromLocalFile(list[ 0 ]->text(0));
         QUrl url2 = QUrl::fromLocalFile(list[ 1 ]->text(0));
 
-        SLOTS->compareContent(url1, url2);
+        SLOTS->compareContent(url1,url2);
     }
     break;
     case FIND_ID: {
@@ -638,15 +638,15 @@ bool LocateDlg::find()
 
 void LocateDlg::feedToListBox()
 {
-    virt_vfs virtVfs;
-    virtVfs.refresh(QUrl::fromLocalFile(QStringLiteral("/")));
+    VirtualFileSystem virtFilesystem;
+    virtFilesystem.scanDir(QUrl::fromLocalFile(QStringLiteral("/")));
 
     KConfigGroup group(krConfig, "Locate");
     int listBoxNum = group.readEntry("Feed To Listbox Counter", 1);
     QString queryName;
     do {
         queryName = i18n("Locate results") + QString(" %1").arg(listBoxNum++);
-    } while (virtVfs.getVfile(queryName) != 0);
+    } while (virtFilesystem.getFileItem(queryName) != 0);
     group.writeEntry("Feed To Listbox Counter", listBoxNum);
 
     KConfigGroup ga(krConfig, "Advanced");
@@ -666,8 +666,8 @@ void LocateDlg::feedToListBox()
         it++;
     }
     QUrl url = QUrl(QStringLiteral("virt:/") + queryName);
-    virtVfs.refresh(url);
-    virtVfs.addFiles(urlList);
+    virtFilesystem.refresh(url); // create directory if it does not exist
+    virtFilesystem.addFiles(urlList);
     //ACTIVE_FUNC->openUrl(url);
     ACTIVE_MNG->slotNewTab(url);
     accept();

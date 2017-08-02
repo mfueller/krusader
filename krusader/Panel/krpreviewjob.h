@@ -41,8 +41,6 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 #include <KIO/PreviewJob>
 #include <KIOCore/KFileItem>
 
-#include "krpreviews.h"
-
 class KrViewItem;
 class KrPreviews;
 
@@ -66,7 +64,7 @@ protected:
     QTimer _timer;
     KrPreviews *_parent;
 
-    KrPreviewJob(KrPreviews *parent);
+    explicit KrPreviewJob(KrPreviews *parent);
     ~KrPreviewJob();
     void scheduleItem(KrViewItem *item);
     void removeItem(KrViewItem *item);

@@ -21,7 +21,7 @@
 #include "dirhistoryqueue.h"
 
 #include "krpanel.h"
-#include "krview.h"
+#include "PanelView/krview.h"
 #include "../defaults.h"
 #include "../krservices.h"
 
@@ -29,7 +29,7 @@
 #include <QDir>
 
 DirHistoryQueue::DirHistoryQueue(KrPanel *panel) :
-    _panel(panel), _state(0), _currentPos(0)
+    _panel(panel), _currentPos(0)
 {
 }
 
@@ -40,7 +40,6 @@ void DirHistoryQueue::clear()
     _urlQueue.clear();
     _currentItems.clear();
     _currentPos = 0;
-    _state++;
 }
 
 QUrl DirHistoryQueue::currentUrl()
@@ -67,7 +66,7 @@ QString DirHistoryQueue::currentItem()
 
 void DirHistoryQueue::saveCurrentItem()
 {
-    // if the vfs-url hasn't been refreshed yet,
+    // if the filesystem-url hasn't been refreshed yet,
     // avoid saving current item for the wrong url
     if(count() &&  _panel->virtualPath().matches(_urlQueue[_currentPos], QUrl::StripTrailingSlash))
         _currentItems[_currentPos] = _panel->view->getCurrentItem();
@@ -80,7 +79,6 @@ void DirHistoryQueue::add(QUrl url, QString currentItem)
     if(_urlQueue.isEmpty()) {
         _urlQueue.push_front(url);
         _currentItems.push_front(currentItem);
-        _state++;
         return;
     }
 
@@ -106,14 +104,6 @@ void DirHistoryQueue::add(QUrl url, QString currentItem)
     saveCurrentItem();
     _urlQueue.push_front(url);
     _currentItems.push_front(currentItem);
-
-    _state++;
-}
-
-void DirHistoryQueue::pushBackRoot()
-{
-    _urlQueue.push_back(QUrl::fromLocalFile(ROOT_DIR));
-    _currentItems.push_back(QString());
 }
 
 bool DirHistoryQueue::gotoPos(int pos)
@@ -121,7 +111,6 @@ bool DirHistoryQueue::gotoPos(int pos)
     if(pos >= 0 && pos < _urlQueue.count()) {
         saveCurrentItem();
         _currentPos = pos;
-        _state++;
         return true;
     }
     return false;
@@ -142,10 +131,11 @@ void DirHistoryQueue::save(KConfigGroup cfg)
     saveCurrentItem();
 
     QList<QUrl> urls;
-    foreach(QUrl url, _urlQueue) {
+    foreach(const QUrl &url, _urlQueue) {
         // make sure no passwords are permanently stored
-        url.setPassword(QString());
-        urls << url;
+        QUrl safeUrl(url);
+        safeUrl.setPassword(QString());
+        urls << safeUrl;
     }
 
     cfg.writeEntry("Entrys", KrServices::toStringList(urls));
@@ -166,6 +156,5 @@ bool DirHistoryQueue::restore(KConfigGroup cfg)
     if(_currentPos >= _urlQueue.count() || _currentPos < 0)
         _currentPos  = 0;
 
-    _state++;
     return true;
 }

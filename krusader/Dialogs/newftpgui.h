@@ -30,18 +30,30 @@
 #include <KCompletion/KHistoryComboBox>
 #include <KCompletion/KLineEdit>
 
-class QEvent;
-class QString;
-class QWidget;
-
+/**
+ * The "New Network Connection" dialog
+ */
 class newFTPGUI : public QDialog
 {
     Q_OBJECT
 
 public:
-    newFTPGUI(QWidget *parent = 0);
+    explicit newFTPGUI(QWidget *parent = 0);
     ~newFTPGUI();
 
+    KComboBox* prefix;
+    KHistoryComboBox* url;
+    QSpinBox* port;
+    KLineEdit* username;
+    KLineEdit* password;
+
+protected:
+    bool event(QEvent *);
+
+private slots:
+    void slotTextChanged(const QString &);
+
+private:
     QLabel* iconLabel;
     QLabel* aboutLabel;
     QLabel* protocolLabel;
@@ -49,17 +61,6 @@ public:
     QLabel* hostLabel;
     QLabel* usernameLabel;
     QLabel* portLabel;
-    QSpinBox* port;
-    KComboBox* prefix;
-    KHistoryComboBox* url;
-    KLineEdit* username;
-    KLineEdit* password;
-
-public slots:
-    void slotTextChanged(const QString &);
-
-protected:
-    bool event(QEvent *);
 };
 
 #endif

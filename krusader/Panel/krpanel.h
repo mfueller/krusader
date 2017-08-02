@@ -32,11 +32,10 @@
 #ifndef KRPANEL_H
 #define KRPANEL_H
 
-#include "../abstractpanelmanager.h"
-
 // QtCore
 #include <QUrl>
 
+class AbstractPanelManager;
 class ListPanelFunc;
 class ListPanel;
 class KrView;
@@ -44,20 +43,16 @@ class KrView;
 class KrPanel
 {
 public:
-    KrPanel(AbstractPanelManager *manager) :
-        gui(0), func(0), view(0), _manager(manager) {}
+    KrPanel(AbstractPanelManager *manager, ListPanel *panel, ListPanelFunc *func) :
+        gui(panel), func(func), view(0), _manager(manager) {}
     virtual ~KrPanel() {}
-    QUrl virtualPath() const; // the current directory path of this panels view
-    AbstractPanelManager *manager() {
+    QUrl virtualPath() const; // the current directory path of this panel
+    AbstractPanelManager *manager() const {
         return _manager;
     }
-    KrPanel *otherPanel() {
-        return _manager->otherManager()->currentPanel();
-    }
-    bool isLeft() const {
-        return _manager->isLeft();
-    }
-    virtual void otherPanelChanged() {}
+    KrPanel *otherPanel() const;
+    bool isLeft() const;
+    virtual void otherPanelChanged() = 0;
 
     ListPanel *gui;
     ListPanelFunc *func;

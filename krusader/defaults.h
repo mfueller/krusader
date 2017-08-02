@@ -67,7 +67,7 @@
 // Warn On Exit ////////
 #define _WarnOnExit     false
 // Minimize To Tray ////
-#define _MinimizeToTray false
+#define _ShowTrayIcon false
 // Mark Dirs ///////////
 #define _MarkDirs       false
 // Show Hidden /////////
@@ -86,6 +86,8 @@
 #define _FullPathTabNames false
 // User defined folder icons
 #define _UserDefinedFolderIcons true
+// Always show current item decoration in panel
+#define _AlwaysShowCurrentItem true
 // Unslect files before copy/move
 #define _UnselectBeforeOperation true
 // Filter dialog remembers settings

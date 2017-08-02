@@ -47,8 +47,8 @@
 #include "krarchandler.h"
 #include "../krglobal.h"
 #include "../krservices.h"
-#include "../VFS/krvfshandler.h"
-#include "../VFS/vfs.h"
+#include "../FileSystem/filesystemprovider.h"
+#include "../FileSystem/filesystem.h"
 
 extern KRarcHandler arcHandler;
 
@@ -139,14 +139,14 @@ bool AbstractThreadedJob::event(QEvent *e)
             job->setUiDelegate(new KIO::JobUiDelegate());
 
             connect(job, SIGNAL(result(KJob*)), this, SLOT(slotDownloadResult(KJob*)));
-            connect(job, SIGNAL(processedAmount(KJob *, KJob::Unit, qulonglong)),
-                    this, SLOT(slotProcessedAmount(KJob *, KJob::Unit, qulonglong)));
-            connect(job, SIGNAL(totalAmount(KJob *, KJob::Unit, qulonglong)),
-                    this, SLOT(slotTotalAmount(KJob *, KJob::Unit, qulonglong)));
-            connect(job, SIGNAL(speed(KJob *, unsigned long)),
-                    this, SLOT(slotSpeed(KJob *, unsigned long)));
-            connect(job, SIGNAL(description(KJob *, const QString &, const QPair<QString, QString> &, const QPair<QString, QString> &)),
-                    this, SLOT(slotDescription(KJob *, const QString &, const QPair<QString, QString> &, const QPair<QString, QString> &)));
+            connect(job, SIGNAL(processedAmount(KJob*,KJob::Unit,qulonglong)),
+                    this, SLOT(slotProcessedAmount(KJob*,KJob::Unit,qulonglong)));
+            connect(job, SIGNAL(totalAmount(KJob*,KJob::Unit,qulonglong)),
+                    this, SLOT(slotTotalAmount(KJob*,KJob::Unit,qulonglong)));
+            connect(job, SIGNAL(speed(KJob*,ulong)),
+                    this, SLOT(slotSpeed(KJob*,ulong)));
+            connect(job, SIGNAL(description(KJob*,QString,QPair<QString,QString>,QPair<QString,QString>)),
+                    this, SLOT(slotDescription(KJob*,QString,QPair<QString,QString>,QPair<QString,QString>)));
         }
         break;
         case CMD_MAXPROGRESSVALUE: {
@@ -266,7 +266,7 @@ class AbstractJobObserver : public KRarcObserver
 protected:
     AbstractJobThread * _jobThread;
 public:
-    AbstractJobObserver(AbstractJobThread * thread): _jobThread(thread) {}
+    explicit AbstractJobObserver(AbstractJobThread * thread): _jobThread(thread) {}
     virtual ~AbstractJobObserver() {}
 
     virtual void processEvents() Q_DECL_OVERRIDE {
@@ -492,18 +492,44 @@ void AbstractJobThread::sendAddProgress(qulonglong value, const QString &progres
     _job->sendEvent(infoEvent);
 }
 
-void AbstractJobThread::calcSpaceLocal(const QUrl &baseUrl, const QStringList & files, KIO::filesize_t &totalSize,
-                                       unsigned long &totalDirs, unsigned long &totalFiles)
+void countFiles(const QString &path, unsigned long &totalFiles, bool &stop)
 {
-    sendReset(i18n("Calculating space"));
-
-    vfs *calcSpaceVfs = KrVfsHandler::instance().getVfs(baseUrl);
-    calcSpaceVfs->refresh(baseUrl);
-
-    for (int i = 0; i != files.count(); i++) {
-        calcSpaceVfs->calcSpace(files[i], &totalSize, &totalFiles, &totalDirs, &_exited);
+    const QDir dir(path);
+    if (!dir.exists()) {
+        totalFiles++; // assume its a file
+        return;
     }
-    delete calcSpaceVfs;
+
+    for (const QString name : dir.entryList()) {
+        if (stop)
+            return;
+
+        if (name == QStringLiteral(".") || name == QStringLiteral(".."))
+            continue;
+
+        countFiles(dir.absoluteFilePath(name), totalFiles, stop);
+    }
+}
+
+void AbstractJobThread::countLocalFiles(const QUrl &baseUrl, const QStringList &files,
+                                       unsigned long &totalFiles)
+{
+    sendReset(i18n("Counting files"));
+
+    FileSystem *calcSpaceFileSystem = FileSystemProvider::instance().getFilesystem(baseUrl);
+    calcSpaceFileSystem->scanDir(baseUrl);
+    for (const QString name : files) {
+        if (_exited)
+            return;
+
+        const QString path = calcSpaceFileSystem->getUrl(name).toLocalFile();
+        if (!QFileInfo(path).exists())
+            return;
+
+        countFiles(path, totalFiles, _exited);
+    }
+
+    delete calcSpaceFileSystem;
 }
 
 KRarcObserver * AbstractJobThread::observer()

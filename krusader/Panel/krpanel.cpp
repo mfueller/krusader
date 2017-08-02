@@ -30,10 +30,21 @@ A
 
 
 #include "krpanel.h"
+
 #include "panelfunc.h"
-#include "../krusaderview.h"
+#include "../abstractpanelmanager.h"
 
 QUrl KrPanel::virtualPath() const
 {
-    return func->files()->currentDirectory();
+    return func->virtualDirectory();
+}
+
+KrPanel *KrPanel::otherPanel() const
+{
+    return _manager->otherManager()->currentPanel();
+}
+
+bool KrPanel::isLeft() const
+{
+    return _manager->isLeft();
 }

@@ -30,7 +30,7 @@ YP   YD 88   YD ~Y8888P' `8888Y' YP   YP Y8888D' Y88888P 88   YD
 
 #include "viewactions.h"
 
-#include "krview.h"
+#include "PanelView/krview.h"
 #include "../krmainwindow.h"
 
 #include <KI18n/KLocalizedString>
@@ -47,7 +47,7 @@ ViewActions::ViewActions(QObject *parent, KrMainWindow *mainWindow) :
     // filter
     action(i18n("&All Files"), 0, Qt::SHIFT + Qt::Key_F10, SLOT(allFilter()), "all files");
     //actExecFilter = new QAction( i18n( "&Executables" ), SHIFT + Qt::Key_F11,
-    //                             SLOTS, SLOT( execFilter() ), actionCollection(), "exec files" );
+    //                             SLOTS, SLOT(execFilter()), actionCollection(), "exec files" );
     action(i18n("&Custom"), 0, Qt::SHIFT + Qt::Key_F12, SLOT(customFilter()), "custom files");
 
     // selection
@@ -62,7 +62,7 @@ ViewActions::ViewActions(QObject *parent, KrMainWindow *mainWindow) :
 
     // other stuff
     action(i18n("Show View Options Menu"), 0, 0, SLOT(showOptionsMenu()), "show_view_options_menu");
-    action(i18n("Set Focus to the Panel"), 0, Qt::Key_Escape, SLOT(focusPanel()), "focus_panel");
+    action(i18n("Set Focus to the Panel"), 0, 0, SLOT(focusPanel()), "focus_panel");
     action(i18n("Apply settings to other tabs"), 0, 0, SLOT(applySettingsToOthers()), "view_apply_settings_to_others");
     actTogglePreviews = toggleAction(i18n("Show Previews"), 0, 0, SLOT(togglePreviews(bool)), "toggle previews");
     QAction *actSaveaveDefaultSettings = action(i18n("Save settings as default"), 0, 0, SLOT(saveDefaultSettings()), "view_save_default_settings");

@@ -241,6 +241,15 @@ void KrActionProc::start(QStringList cmdLineList)
     if (! _action->startpath().isEmpty())
         workingDir = _action->startpath();
 
+    if (!_action->user().isEmpty()) {
+        if (!KrServices::isExecutable(KDESU_PATH)) {
+            KMessageBox::sorry(0,
+                i18n("Cannot run user action, %1 not found or not executable. "
+                     "Please verify that kde-cli-tools are installed.", QString(KDESU_PATH)));
+            return;
+        }
+    }
+
     if (_action->execType() == KrAction::RunInTE
             && (! MAIN_VIEW->terminalDock()->initialise())) {
         KMessageBox::sorry(0, i18n("Embedded terminal emulator does not work, using output collection instead."));
@@ -262,7 +271,8 @@ void KrActionProc::start(QStringList cmdLineList)
         && MAIN_VIEW->terminalDock()->isInitialised()) {  //send the commandline contents to the terminal emulator
             if (!_action->user().isEmpty()) {
                 // "-t" is necessary that kdesu displays the terminal-output of the command
-                cmd = "kdesu -t -u " + _action->user() + " -c " + KrServices::quote(cmd);
+                cmd = KrServices::quote(KDESU_PATH) +
+                      " -t -u " + _action->user() + " -c " + KrServices::quote(cmd);
             }
             MAIN_VIEW->terminalDock()->sendInput(cmd + '\n');
             deleteLater();
@@ -271,8 +281,8 @@ void KrActionProc::start(QStringList cmdLineList)
         _proc = new KProcess(this);
         _proc->clearProgram(); // this clears the arglist too
         _proc->setWorkingDirectory(workingDir);
-        connect(_proc, SIGNAL(finished(int, QProcess::ExitStatus)),
-                this, SLOT(processExited(int, QProcess::ExitStatus)));
+        connect(_proc, SIGNAL(finished(int,QProcess::ExitStatus)),
+                this, SLOT(processExited(int,QProcess::ExitStatus)));
 
         if (_action->execType() == KrAction::Normal || _action->execType() == KrAction::Terminal) { // not collect output
             if (_action->execType() == KrAction::Terminal) { // run in terminal
@@ -295,7 +305,8 @@ void KrActionProc::start(QStringList cmdLineList)
                 cmd = KrServices::quote(termArgs).join(" ");
             }
             if (!_action->user().isEmpty()) {
-                cmd = "kdesu -u " + _action->user() + " -c " + KrServices::quote(cmd);
+                cmd = KrServices::quote(KDESU_PATH) + " -u " + _action->user() +
+                      " -c " + KrServices::quote(cmd);
             }
         }
         else { // collect output
@@ -312,7 +323,9 @@ void KrActionProc::start(QStringList cmdLineList)
 
             if (!_action->user().isEmpty()) {
                 // "-t" is necessary that kdesu displays the terminal-output of the command
-                cmd = "kdesu -t -u " + _action->user() + " -c " + KrServices::quote(cmd);
+                cmd = KrServices::quote(KDESU_PATH) +
+                      " -t -u " + _action->user() +
+                      " -c " + KrServices::quote(cmd);
             }
         }
         //printf("cmd: %s\n", cmd.toAscii().data());
@@ -371,7 +384,7 @@ bool KrAction::isAvailable(const QUrl &currentURL)
     if (! _showonlyProtocol.empty()) {
         available = false;
         for (QStringList::Iterator it = _showonlyProtocol.begin(); it != _showonlyProtocol.end(); ++it) {
-            //qDebug() << "KrAction::isAvailable currendProtocol: " << currentURL.scheme() << " =?= " << *it << endl;
+            //qDebug() << "KrAction::isAvailable currendProtocol: " << currentURL.scheme() << " =?= " << *it;
             if (currentURL.scheme() == *it) {    // FIXME remove trailing slashes at the xml-parsing (faster because done only once)
                 available = true;
                 break;
@@ -489,7 +502,7 @@ bool KrAction::xmlRead(const QDomElement& element)
 
                                             // unknown but not empty
                                             if (! e.tagName().isEmpty())
-                                                krOut << "KrAction::xmlRead() - unrecognized tag found: <action name=\"" << objectName() << "\"><" << e.tagName() << ">" << endl;
+                                                qWarning() << "KrAction::xmlRead() - unrecognized tag found: <action name=\"" << objectName() << "\"><" << e.tagName() << ">";
 
     } // for ( QDomNode node = action->firstChild(); !node.isNull(); node = node.nextSibling() )
 
@@ -559,7 +572,7 @@ void KrAction::readCommand(const QDomElement& element)
         else if (attr == "embedded_terminal")
             setExecType(RunInTE);
         else
-            krOut << "KrAction::readCommand() - unrecognized attribute value found: <action name=\"" << objectName() << "\"><command executionmode=\"" << attr << "\"" << endl;
+            qWarning() << "KrAction::readCommand() - unrecognized attribute value found: <action name=\"" << objectName() << "\"><command executionmode=\"" << attr << "\"";
 
     attr = element.attribute("accept", "local");   // default: "local"
     if (attr == "local")
@@ -567,7 +580,7 @@ void KrAction::readCommand(const QDomElement& element)
     else if (attr == "url")
         setAcceptURLs(true);
     else
-        krOut << "KrAction::readCommand() - unrecognized attribute value found: <action name=\"" << objectName() << "\"><command accept=\"" << attr << "\"" << endl;
+        qWarning() << "KrAction::readCommand() - unrecognized attribute value found: <action name=\"" << objectName() << "\"><command accept=\"" << attr << "\"";
 
     attr = element.attribute("confirmexecution", "false");   // default: "false"
     if (attr == "true")
@@ -638,7 +651,7 @@ void KrAction::readAvailability(const QDomElement& element)
                     if (e.tagName() == "filename")
                         showlist = & _showonlyFile;
                     else {
-                        krOut << "KrAction::readAvailability() - unrecognized element found: <action name=\"" << objectName() << "\"><availability><" << e.tagName() << ">" << endl;
+                        qWarning() << "KrAction::readAvailability() - unrecognized element found: <action name=\"" << objectName() << "\"><availability><" << e.tagName() << ">";
                         showlist = 0;
                     }
 
@@ -682,4 +695,3 @@ QDomElement KrAction::dumpAvailability(QDomDocument& doc) const
 
                     return availabilityElement;
 } //KrAction::dumpAvailability
-

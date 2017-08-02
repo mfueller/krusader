@@ -1,16 +1,15 @@
 project(krusader)
 
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
-set (QT_MIN_VERSION "5.2.0")
 
-set(VERSION "2.5.1-beta" )
-set(RELEASE_NAME "Clear Skies")
+set(VERSION "2.6.1-beta" )
+set(RELEASE_NAME "Stiff Challenges")
 
 # Manages plugin loading. For more details it can be seen https://www.kde.org/announcements/kde-frameworks-5.5.0.php
 # https://github.com/KDE/partitionmanager/blob/master/CMakeLists.txt http://commits.kde.org/kimtoy/1e62777affb0e072f3462e80bc271f3cba661104
 set(KDE_INSTALL_USE_QT_SYS_PATHS ON CACHE BOOL "Install mkspecs files, Plugins and Imports to the Qt 5 install dir" FORCE)
 
-find_package(ECM 1.1.0 REQUIRED NO_MODULE)
+find_package(ECM 1.7.0 REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
 include(ECMOptionalAddSubdirectory)
@@ -29,8 +28,10 @@ include(CheckIncludeFiles)
 include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
+include(ECMAddAppIcon)
 
-find_package(Qt5 CONFIG REQUIRED
+find_package(Qt5 5.5 CONFIG REQUIRED
+  Concurrent
   Core
   Gui
   DBus
@@ -85,6 +86,19 @@ if(ENABLE_SYNCHRONIZER)
 else()
     set(SYNCHRONIZER_ENABLED FALSE)
 endif()
+
+# For security reasons, absolute kdesu path is set at build time and is not
+# configurable.
+if(NOT KDESU_PATH)
+    if(EXISTS "${KDE_INSTALL_FULL_LIBDIR}/kf5/kdesu")
+      # Used by Arch distribution
+      set(KDESU_PATH "${KDE_INSTALL_FULL_LIBDIR}/kf5/kdesu")
+    else()
+      set(KDESU_PATH "${KDE_INSTALL_FULL_LIBEXECDIR_KF5}/kdesu")
+    endif()
+endif()
+message("kdesu path set: ${KDESU_PATH}")
+add_definitions( -DKDESU_PATH="${KDESU_PATH}" )
 
 add_definitions(${QT_DEFINITIONS} ${KF5_DEFINITIONS})
 add_definitions( "-DKRARC_ENABLED" )

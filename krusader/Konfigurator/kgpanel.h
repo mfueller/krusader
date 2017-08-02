@@ -41,7 +41,7 @@ class KgPanel : public KonfiguratorPage
     Q_OBJECT
 
 public:
-    KgPanel(bool first, QWidget* parent = 0);
+    explicit KgPanel(bool first, QWidget* parent = 0);
 
     virtual int activeSubPage() Q_DECL_OVERRIDE;
 
@@ -61,7 +61,7 @@ protected slots:
     void slotMouseCheckBoxChanged();
 
 private:
-    void setupMiscTab();
+    void setupGeneralTab();
     void setupPanelTab();
     void setupButtonsTab();
     void setupMouseModeTab();

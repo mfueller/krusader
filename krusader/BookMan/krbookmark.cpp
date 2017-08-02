@@ -19,8 +19,8 @@
 
 #include "krbookmark.h"
 #include "../krglobal.h"
-#include "../krtrashhandler.h"
 #include "../Archive/krarchandler.h"
+#include "../FileSystem/krtrashhandler.h"
 
 #include <KI18n/KLocalizedString>
 #include <KIconThemes/KIconLoader>
